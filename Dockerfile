@@ -6,9 +6,14 @@ ENV PIP_NO_CACHE_DIR=1 \
     PYTHONUNBUFFERED=1
 
 # System deps
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates curl build-essential \
- && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        ca-certificates curl build-essential && \
+    apt-get upgrade -y curl && \
+    rm -rf /var/lib/apt/lists/*
+
+# Upgrade pip to fix CVE-2025-8869
+RUN pip install --upgrade pip>=25.3
 
 # Install Python deps first for better layer caching
 COPY requirements.txt ./
