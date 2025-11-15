@@ -1,0 +1,25 @@
+meta {
+  name: Error - Unauthorized (GET /clients)
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{baseUrl}}/clients
+  body: none
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+tests {
+  test("Status code is 401", function() {
+    expect(res.getStatus()).to.equal(401);
+  });
+  
+  test("Response contains error message", function() {
+    expect(res.getBody()).to.have.property('detail');
+  });
+}

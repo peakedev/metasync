@@ -1,0 +1,40 @@
+meta {
+  name: Rotate Client API Key
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/clients/{{createdClientId}}/rotate-key
+  body: none
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  admin_api_key: {{adminApiKey}}
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Response is an object", function() {
+    expect(res.getBody()).to.be.an('object');
+  });
+  
+  test("Response contains new API key", function() {
+    const body = res.getBody();
+    expect(body).to.have.property('api_key');
+    expect(body.api_key).to.have.lengthOf(64);
+    expect(body.api_key).to.not.equal(bru.getVar("createdApiKey"));
+    bru.setVar("newApiKey", body.api_key);
+  });
+  
+  test("Client ID matches", function() {
+    const body = res.getBody();
+    expect(body.client_id).to.equal(bru.getVar("createdClientId"));
+  });
+}
+

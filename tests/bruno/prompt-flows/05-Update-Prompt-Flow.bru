@@ -1,0 +1,48 @@
+meta {
+  name: Update Prompt Flow
+  type: http
+  seq: 5
+}
+
+patch {
+  url: {{baseUrl}}/prompt-flows/{{createdFlowId}}
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  client_id: {{clientId}}
+  client_api_key: {{clientApiKey}}
+}
+
+body:json {
+  {
+    "name": "updated-flow",
+    "prompt_ids": ["507f1f77bcf86cd799439012", "507f1f77bcf86cd799439013", "507f1f77bcf86cd799439014"]
+  }
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Response is an object", function() {
+    expect(res.getBody()).to.be.an('object');
+  });
+  
+  test("Updated prompt flow has correct properties", function() {
+    const flow = res.getBody();
+    expect(flow.name).to.equal('updated-flow');
+    expect(flow.prompt_ids).to.be.an('array');
+    expect(flow.prompt_ids).to.have.lengthOf(3);
+    expect(flow.flow_id).to.equal(bru.getVar("createdFlowId"));
+  });
+  
+  test("Prompt flow has updated_at timestamp", function() {
+    const flow = res.getBody();
+    expect(flow).to.have.property('updated_at');
+  });
+}
+

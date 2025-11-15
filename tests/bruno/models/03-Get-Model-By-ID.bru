@@ -1,0 +1,49 @@
+meta {
+  name: Get Model By ID
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/models/{{createdModelId}}
+  body: none
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  admin_api_key: {{adminApiKey}}
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Response is an object", function() {
+    expect(res.getBody()).to.be.an('object');
+  });
+  
+  test("Model has correct ID", function() {
+    const model = res.getBody();
+    expect(model.model_id).to.equal(bru.getVar("createdModelId"));
+  });
+  
+  test("Model has all required fields", function() {
+    const model = res.getBody();
+    expect(model).to.have.property('name');
+    expect(model).to.have.property('sdk');
+    expect(model).to.have.property('endpoint');
+    expect(model).to.have.property('api_type');
+    expect(model).to.have.property('api_version');
+    expect(model).to.have.property('deployment');
+    expect(model).to.have.property('service');
+    expect(model).to.have.property('maxToken');
+    expect(model).to.have.property('minTemperature');
+    expect(model).to.have.property('maxTemperature');
+    expect(model).to.have.property('cost');
+    expect(model).to.have.property('created_at');
+    expect(model).to.not.have.property('key');
+  });
+}
+

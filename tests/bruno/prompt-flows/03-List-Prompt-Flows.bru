@@ -1,0 +1,53 @@
+meta {
+  name: List Prompt Flows
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/prompt-flows
+  body: none
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  client_id: {{clientId}}
+  client_api_key: {{clientApiKey}}
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Response is an array", function() {
+    expect(res.getBody()).to.be.an('array');
+  });
+  
+  test("Response contains prompt flows", function() {
+    expect(res.getBody().length).to.be.greaterThanOrEqual(0);
+  });
+  
+  test("Each prompt flow has required fields", function() {
+    const flows = res.getBody();
+    if (flows.length > 0) {
+      const flow = flows[0];
+      expect(flow).to.have.property('flow_id');
+      expect(flow).to.have.property('name');
+      expect(flow).to.have.property('prompt_ids');
+      expect(flow).to.have.property('isPublic');
+      expect(flow).to.have.property('created_at');
+    }
+  });
+  
+  test("Response includes both public and private flows", function() {
+    const flows = res.getBody();
+    const clientId = bru.getVar("clientId") || bru.getVar("createdClientId");
+    const hasPublic = flows.some(f => f.isPublic === true);
+    const hasPrivate = flows.some(f => f.isPublic === false && f.client_id === clientId);
+    // Should have at least one of our private flows or public flows
+    expect(hasPublic || hasPrivate).to.be.true;
+  });
+}
+

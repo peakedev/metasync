@@ -1,0 +1,33 @@
+meta {
+  name: Update Job Status - To Error (admin)
+  type: http
+  seq: 8
+}
+
+patch {
+  url: {{baseUrl}}/jobs/{{createdJobId}}/full
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  admin_api_key: {{adminApiKey}}
+}
+
+body:json {
+  {
+    "status": "ERROR"
+  }
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Job status is set to ERROR", function() {
+    const job = res.getBody();
+    expect(job.status).to.equal('ERROR');
+  });
+}

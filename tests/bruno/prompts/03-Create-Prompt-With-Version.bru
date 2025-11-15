@@ -1,0 +1,42 @@
+meta {
+  name: Create Prompt With Custom Version
+  type: http
+  seq: 4
+}
+
+
+post {
+  url: {{baseUrl}}/prompts
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  client_id: {{clientId}}
+  client_api_key: {{clientApiKey}}
+}
+
+body:json {
+  {
+    "name": "test-prompt",
+    "type": "system",
+    "version": "v2.0",
+    "status": "DRAFT",
+    "prompt": "You are a helpful assistant with custom version.",
+    "isPublic": false
+  }
+}
+
+tests {
+  test("Status code is 201", function() {
+    expect(res.getStatus()).to.equal(201);
+  });
+  
+  test("Response uses custom version", function() {
+    const prompt = res.getBody();
+    expect(prompt.version).to.equal('v2.0');
+    expect(prompt.name).to.equal('test-prompt');
+  });
+}
+

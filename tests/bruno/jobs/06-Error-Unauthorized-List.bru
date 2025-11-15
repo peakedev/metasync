@@ -1,0 +1,21 @@
+meta {
+  name: Error Unauthorized List
+  type: http
+  seq: 11
+}
+
+get {
+  url: {{baseUrl}}/jobs
+  body: none
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+tests {
+  test("Status code is 401", function() {
+    expect(res.getStatus()).to.equal(401);
+  });
+}

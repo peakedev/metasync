@@ -1,0 +1,30 @@
+meta {
+  name: Error Flow Not Found
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{baseUrl}}/prompt-flows/507f1f77bcf86cd799439999
+  body: none
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  client_id: {{clientId}}
+  client_api_key: {{clientApiKey}}
+}
+
+tests {
+  test("Status code is 404", function() {
+    expect(res.getStatus()).to.equal(404);
+  });
+  
+  test("Response contains error message", function() {
+    const body = res.getBody();
+    expect(body).to.have.property('detail');
+    expect(body.detail).to.include('not found');
+  });
+}
+

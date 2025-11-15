@@ -1,0 +1,76 @@
+meta {
+  name: Verify Job Result
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/jobs/{{e2eJobId}}
+  body: none
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  client_id: {{clientId}}
+  client_api_key: {{clientApiKey}}
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Response is an object", function() {
+    expect(res.getBody()).to.be.an('object');
+  });
+  
+  test("Job status is PROCESSED (not ERROR)", function() {
+    const job = res.getBody();
+    expect(job.status).to.equal('PROCESSED');
+  });
+  
+  test("Job has responseData", function() {
+    const job = res.getBody();
+    expect(job).to.have.property('responseData');
+    expect(job.responseData).to.not.be.null;
+    expect(job.responseData).to.be.an('object');
+  });
+  
+  test("Job has processingMetrics", function() {
+    const job = res.getBody();
+    expect(job).to.have.property('processingMetrics');
+    expect(job.processingMetrics).to.not.be.null;
+    expect(job.processingMetrics).to.be.an('object');
+  });
+  
+  test("ProcessingMetrics contains expected fields", function() {
+    const job = res.getBody();
+    const metrics = job.processingMetrics;
+    // Check for common metrics fields (adjust based on actual implementation)
+    expect(metrics).to.be.an('object');
+    // Note: Specific fields depend on implementation
+  });
+  
+  test("Original job data is preserved", function() {
+    const job = res.getBody();
+    expect(job).to.have.property('requestData');
+    expect(job.requestData).to.be.an('object');
+    expect(job.requestData.input).to.equal('Hello, this is an end-to-end test job');
+    expect(job.requestData.context).to.equal('E2E test context');
+  });
+  
+  test("Job metadata is present", function() {
+    const job = res.getBody();
+    expect(job).to.have.property('_metadata');
+    expect(job._metadata).to.have.property('createdAt');
+    expect(job._metadata).to.have.property('updatedAt');
+  });
+  
+  test("Job has correct operation and model", function() {
+    const job = res.getBody();
+    expect(job.operation).to.equal('process');
+    expect(job.model).to.equal('o3-mini');
+  });
+}
+

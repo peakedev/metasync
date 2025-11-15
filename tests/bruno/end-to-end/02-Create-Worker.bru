@@ -1,0 +1,65 @@
+meta {
+  name: Create Worker
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/workers
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  client_id: {{clientId}}
+  client_api_key: {{clientApiKey}}
+}
+
+body:json {
+  {
+    "workerId": "e2e-worker-{{$timestamp}}",
+    "config": {
+      "pollInterval": 5,
+      "maxItemsPerBatch": 10,
+      "modelFilter": "o3-mini",
+      "operationFilter": "process",
+      "clientReferenceFilters": {
+        "ref": "{{e2eClientRef}}"
+      }
+    }
+  }
+}
+
+tests {
+  test("Status code is 201", function() {
+    expect(res.getStatus()).to.equal(201);
+  });
+  
+  test("Response is an object", function() {
+    expect(res.getBody()).to.be.an('object');
+  });
+  
+  test("Created worker has correct properties", function() {
+    const worker = res.getBody();
+    expect(worker).to.have.property('worker_id');
+    expect(worker).to.have.property('workerId');
+    expect(worker).to.have.property('clientId');
+    expect(worker).to.have.property('status');
+    expect(worker.status).to.equal('stopped');
+    expect(worker).to.have.property('config');
+    expect(worker.config.pollInterval).to.equal(5);
+    expect(worker.config.maxItemsPerBatch).to.equal(10);
+    expect(worker.config.modelFilter).to.equal('o3-mini');
+    expect(worker.config.operationFilter).to.equal('process');
+    expect(worker.config.clientReferenceFilters).to.be.an('object');
+    expect(worker.config.clientReferenceFilters.ref).to.equal(bru.getVar("e2eClientRef"));
+    bru.setVar("e2eWorkerId", worker.worker_id);
+  });
+  
+  test("Worker has created_at timestamp", function() {
+    const worker = res.getBody();
+    expect(worker).to.have.property('created_at');
+  });
+}
+

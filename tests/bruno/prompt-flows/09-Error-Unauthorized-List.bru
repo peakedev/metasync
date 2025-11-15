@@ -1,0 +1,27 @@
+meta {
+  name: Error Unauthorized List
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{baseUrl}}/prompt-flows
+  body: none
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+tests {
+  test("Status code is 401", function() {
+    expect(res.getStatus()).to.equal(401);
+  });
+  
+  test("Response contains error message", function() {
+    const body = res.getBody();
+    expect(body).to.have.property('detail');
+  });
+}
+

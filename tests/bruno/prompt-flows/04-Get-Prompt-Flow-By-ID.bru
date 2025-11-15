@@ -1,0 +1,36 @@
+meta {
+  name: Get Prompt Flow By ID
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/prompt-flows/{{createdFlowId}}
+  body: none
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  client_id: {{clientId}}
+  client_api_key: {{clientApiKey}}
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Response is an object", function() {
+    expect(res.getBody()).to.be.an('object');
+  });
+  
+  test("Response contains correct prompt flow", function() {
+    const flow = res.getBody();
+    expect(flow.flow_id).to.equal(bru.getVar("createdFlowId"));
+    expect(flow).to.have.property('name');
+    expect(flow).to.have.property('prompt_ids');
+    expect(flow).to.have.property('isPublic');
+  });
+}
+

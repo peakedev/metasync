@@ -1,0 +1,50 @@
+meta {
+  name: Error Unauthorized
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/models
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  admin_api_key: invalid-key
+}
+
+body:json {
+  {
+    "name": "test-model",
+    "sdk": "ChatCompletionsClient",
+    "endpoint": "https://example.com",
+    "api_type": "foundry",
+    "api_version": "2024-05-01-preview",
+    "deployment": "test-deployment",
+    "service": "test-service",
+    "key": "TEST-KEY",
+    "maxToken": 1000,
+    "minTemperature": 0,
+    "maxTemperature": 1,
+    "cost": {
+      "tokens": 1000,
+      "currency": "USD",
+      "input": 0.0002,
+      "output": 0.0004
+    }
+  }
+}
+
+tests {
+  test("Status code is 401", function() {
+    expect(res.getStatus()).to.equal(401);
+  });
+  
+  test("Response contains error message", function() {
+    const body = res.getBody();
+    expect(body).to.have.property('detail');
+  });
+}
+

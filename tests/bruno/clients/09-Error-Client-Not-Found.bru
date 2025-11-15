@@ -1,0 +1,28 @@
+meta {
+  name: Error - Client Not Found
+  type: http
+  seq: 16
+}
+
+get {
+  url: {{baseUrl}}/clients/non-existent-client-id
+  body: none
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  admin_api_key: {{adminApiKey}}
+}
+
+tests {
+  test("Status code is 404", function() {
+    expect(res.getStatus()).to.equal(404);
+  });
+  
+  test("Response contains error message", function() {
+    expect(res.getBody()).to.have.property('detail');
+    expect(res.getBody().detail).to.include('not found');
+  });
+}
+

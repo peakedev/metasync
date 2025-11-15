@@ -1,0 +1,55 @@
+meta {
+  name: Create Public Prompt (Admin)
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/prompts
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  admin_api_key: {{adminApiKey}}
+}
+
+body:json {
+  {
+    "name": "public-prompt",
+    "type": "system",
+    "status": "PUBLISHED",
+    "prompt": "This is a public prompt available to all clients.",
+    "isPublic": true
+  }
+}
+
+tests {
+  test("Status code is 201", function() {
+    expect(res.getStatus()).to.equal(201);
+  });
+  
+  test("Response is an object", function() {
+    expect(res.getBody()).to.be.an('object');
+  });
+  
+  test("Created prompt has correct properties", function() {
+    const prompt = res.getBody();
+    expect(prompt.name).to.equal('public-prompt');
+    expect(prompt.type).to.equal('system');
+    expect(prompt.status).to.equal('PUBLISHED');
+    expect(prompt.prompt).to.equal('This is a public prompt available to all clients.');
+    expect(prompt.isPublic).to.equal(true);
+    expect(prompt).to.have.property('prompt_id');
+    expect(prompt).to.have.property('version');
+    expect(prompt.client_id).to.be.null;
+    bru.setVar("createdPublicPromptId", prompt.prompt_id);
+  });
+  
+  test("Prompt has created_at timestamp", function() {
+    const prompt = res.getBody();
+    expect(prompt).to.have.property('created_at');
+  });
+}
+

@@ -1,0 +1,87 @@
+meta {
+  name: Wait For Processing
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/jobs/{{e2eJobId}}
+  body: none
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  client_id: {{clientId}}
+  client_api_key: {{clientApiKey}}
+}
+
+script:pre-request {
+  // Initialize polling counter if not set
+  if (!bru.getVar("e2ePollCount")) {
+    bru.setVar("e2ePollCount", "0");
+  }
+  
+  // Get current poll count
+  const pollCount = parseInt(bru.getVar("e2ePollCount") || "0");
+  const maxPolls = 30; // Maximum 30 polls
+  
+  if (pollCount >= maxPolls) {
+    throw new Error(`Polling timeout: Job did not complete within ${maxPolls} checks`);
+  }
+  
+  // Increment poll count
+  bru.setVar("e2ePollCount", (pollCount + 1).toString());
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Response is an object", function() {
+    expect(res.getBody()).to.be.an('object');
+  });
+  
+  test("Check job status", function() {
+    const job = res.getBody();
+    const status = job.status;
+    const pollCount = parseInt(bru.getVar("e2ePollCount") || "0");
+    const maxPolls = 30;
+    
+    bru.setVar("e2eLastStatus", status);
+    
+    if (status === 'PENDING' || status === 'PROCESSING') {
+      if (pollCount < maxPolls) {
+        // Job is still processing
+        // Note: In Bruno, you can re-run this request manually or use collection runner
+        // The collection runner will automatically re-execute this request
+        console.log(`Job status: ${status}, poll count: ${pollCount}/${maxPolls}`);
+        bru.setVar("e2ePollAgain", "true");
+        // Don't fail the test, just indicate we need to poll again
+      } else {
+        throw new Error(`Job did not complete within ${maxPolls} polls. Last status: ${status}`);
+      }
+    } else {
+      // Job is done (PROCESSED or ERROR)
+      bru.setVar("e2eFinalJobStatus", status);
+      bru.setVar("e2ePollAgain", "false");
+      console.log(`Job completed with status: ${status} after ${pollCount} polls`);
+    }
+  });
+  
+  test("Job status is PROCESSED or ERROR when complete", function() {
+    const job = res.getBody();
+    const status = job.status;
+    const pollAgain = bru.getVar("e2ePollAgain");
+    
+    // Skip assertion if still polling
+    if (pollAgain === "true") {
+      return;
+    }
+    
+    expect(['PROCESSED', 'ERROR']).to.include(status);
+    bru.setVar("e2eFinalJobStatus", status);
+  });
+}
+

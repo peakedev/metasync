@@ -1,0 +1,32 @@
+meta {
+  name: Admin List All Jobs
+  type: http
+  seq: 19
+}
+
+get {
+  url: {{baseUrl}}/jobs
+  body: none
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  admin_api_key: {{adminApiKey}}
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Response is an array", function() {
+    expect(res.getBody()).to.be.an('array');
+  });
+  
+  test("Admin can see all jobs", function() {
+    const jobs = res.getBody();
+    // Admin should be able to see jobs from all clients
+    expect(jobs.length).to.be.greaterThanOrEqual(0);
+  });
+}

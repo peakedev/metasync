@@ -1,0 +1,51 @@
+meta {
+  name: Readiness Check
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/health/ready
+  body: none
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+tests {
+  test("Status code is 200 or 503", function() {
+    expect([200, 503]).to.include(res.getStatus());
+  });
+  
+  test("Response is an object", function() {
+    expect(res.getBody()).to.be.an('object');
+  });
+  
+  test("Response has status field", function() {
+    expect(res.getBody()).to.have.property('status');
+    expect(['ready', 'not_ready']).to.include(res.getBody().status);
+  });
+  
+  test("Response has service field", function() {
+    expect(res.getBody()).to.have.property('service');
+    expect(res.getBody().service).to.equal('metasync-api');
+  });
+  
+  test("Response has timestamp field", function() {
+    expect(res.getBody()).to.have.property('timestamp');
+  });
+  
+  test("Response has checks object", function() {
+    expect(res.getBody()).to.have.property('checks');
+    expect(res.getBody().checks).to.be.an('object');
+  });
+  
+  test("Response has database check", function() {
+    expect(res.getBody().checks).to.have.property('database');
+    expect(res.getBody().checks.database).to.be.an('object');
+    expect(res.getBody().checks.database).to.have.property('status');
+  });
+}
+

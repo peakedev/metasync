@@ -1,0 +1,29 @@
+meta {
+  name: Error - Invalid API Key (DELETE /clients/{id})
+  type: http
+  seq: 20
+}
+
+delete {
+  url: {{baseUrl}}/clients/test-client-id
+  body: none
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  admin_api_key: invalid-api-key-12345
+}
+
+tests {
+  test("Status code is 401", function() {
+    expect(res.getStatus()).to.equal(401);
+  });
+  
+  test("Response contains invalid key error message", function() {
+    expect(res.getBody()).to.have.property('detail');
+    expect(res.getBody().detail).to.equal('Invalid admin API key');
+  });
+}
+
+

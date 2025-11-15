@@ -1,0 +1,44 @@
+meta {
+  name: Update Job Status - To Pending (admin)
+  type: http
+  seq: 7
+}
+
+patch {
+  url: {{baseUrl}}/jobs/{{createdJobId}}/full
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  admin_api_key: {{adminApiKey}}
+}
+
+body:json {
+  {
+    "status": "PENDING"
+  }
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Response is an object", function() {
+    expect(res.getBody()).to.be.an('object');
+  });
+  
+  test("Job status is updated", function() {
+    const job = res.getBody();
+    expect(job.status).to.equal('PENDING');
+  });
+  
+  test("Other fields remain unchanged", function() {
+    const job = res.getBody();
+    expect(job).to.have.property('operation');
+    expect(job).to.have.property('model');
+    expect(job).to.have.property('requestData');
+  });
+}

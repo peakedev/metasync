@@ -1,0 +1,25 @@
+services:
+  metasync:
+    build: .
+    container_name: metasync
+    environment:
+      - DB_NAME=${DB_NAME}
+      - DB_CONNECTION_STRING=${DB_CONNECTION_STRING}
+      - DOCS_USER=${DOCS_USER}
+      - DOCS_SECRET=${DOCS_SECRET}
+      - API_KEY_PEPPER=${API_KEY_PEPPER}
+      - ADMIN_API_KEY=${ADMIN_API_KEY}
+      - POLL_INTERVAL=${POLL_INTERVAL}
+      - MAX_ITEMS_PER_BATCH=${MAX_ITEMS_PER_BATCH}
+      - NUM_LLM_WORKERS=${NUM_LLM_WORKERS}
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./utilities:/app/utilities:ro 
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

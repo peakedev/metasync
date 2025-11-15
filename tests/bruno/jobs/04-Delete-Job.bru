@@ -1,0 +1,23 @@
+meta {
+  name: Delete Job
+  type: http
+  seq: 22
+}
+
+delete {
+  url: {{baseUrl}}/jobs/{{createdJobId}}
+  body: none
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  client_id: {{clientId}}
+  client_api_key: {{clientApiKey}}
+}
+
+tests {
+  test("Status code is 204", function() {
+    expect(res.getStatus()).to.equal(204);
+  });
+}

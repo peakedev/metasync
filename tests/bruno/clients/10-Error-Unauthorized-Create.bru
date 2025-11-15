@@ -1,0 +1,33 @@
+meta {
+  name: Error - Unauthorized (POST /clients)
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{baseUrl}}/clients
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "name": "Test Client"
+  }
+}
+
+tests {
+  test("Status code is 401", function() {
+    expect(res.getStatus()).to.equal(401);
+  });
+  
+  test("Response contains error message", function() {
+    expect(res.getBody()).to.have.property('detail');
+  });
+}
+
+

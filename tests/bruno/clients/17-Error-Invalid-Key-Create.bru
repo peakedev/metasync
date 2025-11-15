@@ -1,0 +1,35 @@
+meta {
+  name: Error - Invalid API Key (POST /clients)
+  type: http
+  seq: 17
+}
+
+post {
+  url: {{baseUrl}}/clients
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  admin_api_key: invalid-api-key-12345
+}
+
+body:json {
+  {
+    "name": "Test Client"
+  }
+}
+
+tests {
+  test("Status code is 401", function() {
+    expect(res.getStatus()).to.equal(401);
+  });
+  
+  test("Response contains invalid key error message", function() {
+    expect(res.getBody()).to.have.property('detail');
+    expect(res.getBody().detail).to.equal('Invalid admin API key');
+  });
+}
+
+

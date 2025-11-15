@@ -1,0 +1,26 @@
+meta {
+  name: Error Unauthorized Summary
+  type: http
+  seq: 31
+}
+
+get {
+  url: {{baseUrl}}/jobs/summary
+  body: none
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+tests {
+  test("Status code is 401", function() {
+    expect(res.getStatus()).to.equal(401);
+  });
+  
+  test("Response indicates unauthorized", function() {
+    const body = res.getBody();
+    expect(body).to.have.property('detail');
+  });
+}

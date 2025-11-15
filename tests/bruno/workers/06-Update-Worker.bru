@@ -1,0 +1,55 @@
+meta {
+  name: Update Worker
+  type: http
+  seq: 6
+}
+
+patch {
+  url: {{baseUrl}}/workers/{{createdWorkerId}}
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  client_id: {{clientId}}
+  client_api_key: {{clientApiKey}}
+}
+
+body:json {
+  {
+    "config": {
+      "pollInterval": 15,
+      "maxItemsPerBatch": 100,
+      "modelFilter": "gpt-4",
+      "operationFilter": null,
+      "clientReferenceFilters": null
+    }
+  }
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Response is an object", function() {
+    expect(res.getBody()).to.be.an('object');
+  });
+  
+  test("Worker config is updated", function() {
+    const worker = res.getBody();
+    expect(worker.config.pollInterval).to.equal(15);
+    expect(worker.config.maxItemsPerBatch).to.equal(100);
+    expect(worker.config.modelFilter).to.equal('gpt-4');
+    expect(worker.config.operationFilter).to.be.null;
+    expect(worker.config.clientReferenceFilters).to.be.null;
+  });
+  
+  test("Worker status is still stopped", function() {
+    const worker = res.getBody();
+    expect(worker.status).to.equal('stopped');
+  });
+}
+
+

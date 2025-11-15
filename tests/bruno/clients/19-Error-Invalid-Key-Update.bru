@@ -1,0 +1,35 @@
+meta {
+  name: Error - Invalid API Key (PATCH /clients/{id})
+  type: http
+  seq: 19
+}
+
+patch {
+  url: {{baseUrl}}/clients/test-client-id
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  admin_api_key: invalid-api-key-12345
+}
+
+body:json {
+  {
+    "name": "Updated Name"
+  }
+}
+
+tests {
+  test("Status code is 401", function() {
+    expect(res.getStatus()).to.equal(401);
+  });
+  
+  test("Response contains invalid key error message", function() {
+    expect(res.getBody()).to.have.property('detail');
+    expect(res.getBody().detail).to.equal('Invalid admin API key');
+  });
+}
+
+

@@ -1,0 +1,45 @@
+meta {
+  name: Update Client
+  type: http
+  seq: 5
+}
+
+patch {
+  url: {{baseUrl}}/clients/{{createdClientId}}
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  admin_api_key: {{adminApiKey}}
+}
+
+body:json {
+  {
+    "name": "Updated Client Name",
+    "enabled": false
+  }
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Response contains updated name", function() {
+    const body = res.getBody();
+    expect(body.name).to.equal("Updated Client Name");
+  });
+  
+  test("Response contains updated enabled status", function() {
+    const body = res.getBody();
+    expect(body.enabled).to.equal(false);
+  });
+  
+  test("Client ID is preserved", function() {
+    const body = res.getBody();
+    expect(body.client_id).to.equal(bru.getVar("createdClientId"));
+  });
+}
+

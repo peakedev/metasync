@@ -1,0 +1,36 @@
+meta {
+  name: List Prompts Filtered By Status
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{baseUrl}}/prompts?name=test-prompt&type=system&status=DRAFT
+  body: none
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  client_id: {{clientId}}
+  client_api_key: {{clientApiKey}}
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Response is an array", function() {
+    expect(res.getBody()).to.be.an('array');
+  });
+  
+  test("All results match filters", function() {
+    const prompts = res.getBody();
+    prompts.forEach(prompt => {
+      expect(prompt.name).to.equal('test-prompt');
+      expect(prompt.type).to.equal('system');
+      expect(prompt.status).to.equal('DRAFT');
+    });
+  });
+}

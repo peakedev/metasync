@@ -1,0 +1,70 @@
+meta {
+  name: Create Job
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/jobs
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  client_id: {{clientId}}
+  client_api_key: {{clientApiKey}}
+}
+
+body:json {
+  {
+    "operation": "process",
+    "prompts": ["{{promptId1}}", "{{promptId2}}"],
+    "model": "o3-mini",
+    "temperature": 0.7,
+    "priority": 100,
+    "id": "test-job-{{$timestamp}}",
+    "requestData": {
+      "input": "Hello, this is a test job",
+      "context": "test context"
+    },
+    "clientReference": {
+      "ref": "test-ref-123"
+    }
+  }
+}
+
+tests {
+  test("Status code is 201", function() {
+    expect(res.getStatus()).to.equal(201);
+  });
+  
+  test("Response is an object", function() {
+    expect(res.getBody()).to.be.an('object');
+  });
+  
+  test("Created job has correct properties", function() {
+    const job = res.getBody();
+    expect(job.operation).to.equal('process');
+    expect(job.prompts).to.be.an('array');
+    expect(job.prompts.length).to.be.greaterThan(0);
+    expect(job.model).to.equal('o3-mini');
+    expect(job.temperature).to.equal(0.7);
+    expect(job.priority).to.equal(100);
+    expect(job.status).to.equal('PENDING');
+    expect(job).to.have.property('job_id');
+    expect(job).to.have.property('clientId');
+    expect(job).to.have.property('requestData');
+    expect(job.requestData).to.be.an('object');
+    expect(job.requestData.input).to.equal('Hello, this is a test job');
+    expect(job).to.have.property('clientReference');
+    expect(job.clientReference.ref).to.equal('test-ref-123');
+    bru.setVar("createdJobId", job.job_id);
+  });
+  
+  test("Job has _metadata with createdAt timestamp", function() {
+    const job = res.getBody();
+    expect(job).to.have.property('_metadata');
+    expect(job._metadata).to.have.property('createdAt');
+  });
+}

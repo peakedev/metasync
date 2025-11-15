@@ -1,0 +1,52 @@
+meta {
+  name: Create Private Prompt Flow
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/prompt-flows
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  client_id: {{clientId}}
+  client_api_key: {{clientApiKey}}
+}
+
+body:json {
+  {
+    "name": "test-flow",
+    "prompt_ids": ["507f1f77bcf86cd799439012", "507f1f77bcf86cd799439013"],
+    "isPublic": false
+  }
+}
+
+tests {
+  test("Status code is 201", function() {
+    expect(res.getStatus()).to.equal(201);
+  });
+  
+  test("Response is an object", function() {
+    expect(res.getBody()).to.be.an('object');
+  });
+  
+  test("Created prompt flow has correct properties", function() {
+    const flow = res.getBody();
+    expect(flow.name).to.equal('test-flow');
+    expect(flow.prompt_ids).to.be.an('array');
+    expect(flow.prompt_ids).to.have.lengthOf(2);
+    expect(flow.isPublic).to.equal(false);
+    expect(flow).to.have.property('flow_id');
+    bru.setVar("createdFlowId", flow.flow_id);
+    expect(flow.client_id).to.deep.equal(bru.getEnvVar("clientId"));
+  });
+  
+  test("Prompt flow has created_at timestamp", function() {
+    const flow = res.getBody();
+    expect(flow).to.have.property('created_at');
+  });
+}
+

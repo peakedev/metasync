@@ -1,0 +1,38 @@
+meta {
+  name: Toggle Client Enabled
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/clients/{{createdClientId}}/toggle
+  body: none
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  admin_api_key: {{adminApiKey}}
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Response is an object", function() {
+    expect(res.getBody()).to.be.an('object');
+  });
+  
+  test("Enabled status is toggled", function() {
+    const body = res.getBody();
+    expect(body).to.have.property('enabled');
+    expect(typeof body.enabled).to.equal('boolean');
+  });
+  
+  test("Client ID is preserved", function() {
+    const body = res.getBody();
+    expect(body.client_id).to.equal(bru.getVar("createdClientId"));
+  });
+}
+

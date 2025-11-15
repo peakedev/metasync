@@ -1,0 +1,13 @@
+pymongo>=4.0.0
+keyring>=23.0.0
+pandas>=2.0.0
+matplotlib>=3.5.0
+seaborn>=0.11.0
+fastapi>=0.121.1
+uvicorn[standard]==0.32.1
+structlog==24.4.0
+argon2-cffi>=23.0.0
+azure-ai-inference>=1.0.0b1
+azure-identity>=1.0.0
+openai>=1.0.0
+anthropic>=0.18.0

@@ -1,0 +1,34 @@
+meta {
+  name: Error Unauthorized Create
+  type: http
+  seq: 14
+}
+
+post {
+  url: {{baseUrl}}/jobs
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "operation": "process",
+    "prompts": ["promptId1"],
+    "model": "gpt-4",
+    "temperature": 0.7,
+    "priority": 100,
+    "requestData": {
+      "input": "test"
+    }
+  }
+}
+
+tests {
+  test("Status code is 401", function() {
+    expect(res.getStatus()).to.equal(401);
+  });
+}

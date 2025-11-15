@@ -1,0 +1,36 @@
+meta {
+  name: Error Update Public Requires Admin
+  type: http
+  seq: 12
+}
+
+patch {
+  url: {{baseUrl}}/prompt-flows/{{createdPublicFlowId}}
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  client_id: {{clientId}}
+  client_api_key: {{clientApiKey}}
+}
+
+body:json {
+  {
+    "name": "unauthorized-update"
+  }
+}
+
+tests {
+  test("Status code is 403", function() {
+    expect(res.getStatus()).to.equal(403);
+  });
+  
+  test("Response contains error message", function() {
+    const body = res.getBody();
+    expect(body).to.have.property('detail');
+    expect(body.detail).to.include('Admin API key');
+  });
+}
+

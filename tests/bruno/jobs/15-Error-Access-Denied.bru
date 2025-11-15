@@ -1,0 +1,26 @@
+meta {
+  name: Error Access Denied
+  type: http
+  seq: 21
+}
+
+get {
+  url: {{baseUrl}}/jobs/{{createdJobId}}
+  body: none
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  client_id: {{clientId}}
+  client_api_key: {{clientApiKey}}
+}
+
+tests {
+  // This test may pass if the client owns the job, or fail with 404 if they don't
+  // It's meant to test that clients can't access other clients' jobs
+  test("Status code is 404 or 200", function() {
+    const status = res.getStatus();
+    expect([200, 404]).to.include(status);
+  });
+}

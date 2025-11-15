@@ -1,0 +1,24 @@
+meta {
+  name: Delete Prompt Flow
+  type: http
+  seq: 6
+}
+
+delete {
+  url: {{baseUrl}}/prompt-flows/{{createdFlowId}}
+  body: none
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  client_id: {{clientId}}
+  client_api_key: {{clientApiKey}}
+}
+
+tests {
+  test("Status code is 204", function() {
+    expect(res.getStatus()).to.equal(204);
+  });
+}
+

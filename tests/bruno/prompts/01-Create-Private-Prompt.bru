@@ -1,0 +1,61 @@
+meta {
+  name: Create Private Prompt
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/prompts
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  client_id: {{clientId}}
+  client_api_key: {{clientApiKey}}
+}
+
+body:json {
+  {
+    "name": "test-prompt",
+    "type": "system",
+    "status": "DRAFT",
+    "prompt": "You are a helpful assistant.",
+    "isPublic": false
+  }
+}
+
+tests {
+  test("Status code is 201", function() {
+    expect(res.getStatus()).to.equal(201);
+  });
+  
+  test("Response is an object", function() {
+    expect(res.getBody()).to.be.an('object');
+  });
+  
+  test("Created prompt has correct properties", function() {
+    const prompt = res.getBody();
+    expect(prompt.name).to.equal('test-prompt');
+    expect(prompt.type).to.equal('system');
+    expect(prompt.status).to.equal('DRAFT');
+    expect(prompt.prompt).to.equal('You are a helpful assistant.');
+    expect(prompt.isPublic).to.equal(false);
+    expect(prompt).to.have.property('prompt_id');
+    expect(prompt).to.have.property('version');
+    expect(prompt).to.have.property('client_id');
+    bru.setVar("createdPromptId", prompt.prompt_id);
+    expect(prompt.client_id).to.deep.equal(bru.getEnvVar("clientId"));
+  });
+  
+  test("Prompt has created_at timestamp", function() {
+    const prompt = res.getBody();
+    expect(prompt).to.have.property('created_at');
+  });
+  
+  test("Version is auto-incremented to 1", function() {
+    const prompt = res.getBody();
+    expect(prompt.version).to.equal(1);
+  });
+}

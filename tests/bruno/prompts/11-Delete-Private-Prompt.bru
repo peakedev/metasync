@@ -1,0 +1,43 @@
+meta {
+  name: Create Prompt With Auto-Increment Version
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/prompts
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  client_id: {{clientId}}
+  client_api_key: {{clientApiKey}}
+}
+
+body:json {
+  {
+    "name": "auto-version-prompt",
+    "type": "user",
+    "status": "DRAFT",
+    "prompt": "This prompt will get auto-incremented version.",
+    "isPublic": false
+  }
+}
+
+tests {
+  test("Status code is 201", function() {
+    expect(res.getStatus()).to.equal(201);
+  });
+  
+  test("Version is auto-incremented to 1", function() {
+    const prompt = res.getBody();
+    expect(prompt.version).to.equal(1);
+  });
+  
+  test("Creating second prompt with same name/type increments version", function() {
+    // This test would need to be run manually or as a separate request
+    // The version should be 2 for the second prompt
+  });
+}

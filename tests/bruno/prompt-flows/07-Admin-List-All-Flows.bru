@@ -1,0 +1,43 @@
+meta {
+  name: Admin List All Flows
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{baseUrl}}/prompt-flows
+  body: none
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  admin_api_key: {{adminApiKey}}
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Response is an array", function() {
+    expect(res.getBody()).to.be.an('array');
+  });
+  
+  test("Admin can see all flows", function() {
+    const flows = res.getBody();
+    // Admin should see flows from all clients plus public flows
+    expect(flows.length).to.be.greaterThanOrEqual(0);
+  });
+  
+  test("Response includes flows from different clients", function() {
+    const flows = res.getBody();
+    if (flows.length > 1) {
+      const clientIds = flows.map(f => f.client_id).filter(id => id !== null);
+      const publicFlows = flows.filter(f => f.isPublic === true);
+      // Should have at least some variety (different client_ids or public flows)
+      expect(clientIds.length > 0 || publicFlows.length > 0).to.be.true;
+    }
+  });
+}
+

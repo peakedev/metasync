@@ -1,0 +1,35 @@
+meta {
+  name: Error Unauthorized Create
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/prompt-flows
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "name": "unauthorized-flow",
+    "prompt_ids": ["507f1f77bcf86cd799439012"],
+    "isPublic": false
+  }
+}
+
+tests {
+  test("Status code is 401", function() {
+    expect(res.getStatus()).to.equal(401);
+  });
+  
+  test("Response contains error message", function() {
+    const body = res.getBody();
+    expect(body).to.have.property('detail');
+  });
+}
+

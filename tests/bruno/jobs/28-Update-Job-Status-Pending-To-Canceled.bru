@@ -1,0 +1,45 @@
+meta {
+  name: Update Job Status - Pending To Canceled
+  type: http
+  seq: 6
+}
+
+patch {
+  url: {{baseUrl}}/jobs/{{createdJobId}}
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  client_id: {{clientId}}
+  client_api_key: {{clientApiKey}}
+}
+
+body:json {
+  {
+    "status": "CANCELED"
+  }
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Response is an object", function() {
+    expect(res.getBody()).to.be.an('object');
+  });
+  
+  test("Job status is updated", function() {
+    const job = res.getBody();
+    expect(job.status).to.equal('CANCELED');
+  });
+  
+  test("Other fields remain unchanged", function() {
+    const job = res.getBody();
+    expect(job).to.have.property('operation');
+    expect(job).to.have.property('model');
+    expect(job).to.have.property('requestData');
+  });
+}

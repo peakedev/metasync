@@ -1,0 +1,45 @@
+meta {
+  name: Health Check
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/health
+  body: none
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Response is an object", function() {
+    expect(res.getBody()).to.be.an('object');
+  });
+  
+  test("Response has status field", function() {
+    expect(res.getBody()).to.have.property('status');
+    expect(res.getBody().status).to.equal('healthy');
+  });
+  
+  test("Response has service field", function() {
+    expect(res.getBody()).to.have.property('service');
+    expect(res.getBody().service).to.equal('metasync-api');
+  });
+  
+  test("Response has timestamp field", function() {
+    expect(res.getBody()).to.have.property('timestamp');
+  });
+  
+  test("Response has version field", function() {
+    expect(res.getBody()).to.have.property('version');
+  });
+}
+
+

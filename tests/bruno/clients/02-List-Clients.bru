@@ -1,0 +1,43 @@
+meta {
+  name: List All Clients
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/clients
+  body: none
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  admin_api_key: {{adminApiKey}}
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Response is an array", function() {
+    expect(res.getBody()).to.be.an('array');
+  });
+  
+  test("Response contains clients", function() {
+    expect(res.getBody().length).to.be.greaterThanOrEqual(0);
+  });
+  
+  test("Each client has required fields", function() {
+    const clients = res.getBody();
+    if (clients.length > 0) {
+      const client = clients[0];
+      expect(client).to.have.property('client_id');
+      expect(client).to.have.property('name');
+      expect(client).to.have.property('enabled');
+      expect(client).to.have.property('created_at');
+      expect(client).to.not.have.property('api_key');
+    }
+  });
+}
+

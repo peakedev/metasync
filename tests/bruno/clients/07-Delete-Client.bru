@@ -1,0 +1,23 @@
+meta {
+  name: Delete Client
+  type: http
+  seq: 8
+}
+
+delete {
+  url: {{baseUrl}}/clients/{{createdClientId}}
+  body: none
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  admin_api_key: {{adminApiKey}}
+}
+
+tests {
+  test("Status code is 204", function() {
+    expect(res.getStatus()).to.equal(204);
+  });
+}
+

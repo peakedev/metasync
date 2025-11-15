@@ -1,0 +1,43 @@
+meta {
+  name: Get Worker By ID
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/workers/{{createdWorkerId}}
+  body: none
+  auth: none
+}
+
+headers {
+  client_id: {{clientId}}
+  client_api_key: {{clientApiKey}}
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Response is an object", function() {
+    expect(res.getBody()).to.be.an('object');
+  });
+  
+  test("Worker has correct ID", function() {
+    const worker = res.getBody();
+    const createdWorkerId = bru.getVar("createdWorkerId");
+    expect(worker.worker_id).to.equal(createdWorkerId);
+  });
+  
+  test("Worker has all required properties", function() {
+    const worker = res.getBody();
+    expect(worker).to.have.property('workerId');
+    expect(worker).to.have.property('clientId');
+    expect(worker).to.have.property('status');
+    expect(worker).to.have.property('config');
+    expect(worker).to.have.property('created_at');
+  });
+}
+
+

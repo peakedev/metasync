@@ -1,0 +1,54 @@
+meta {
+  name: Create Client
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/clients
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  admin_api_key: {{adminApiKey}}
+}
+
+body:json {
+  {
+    "name": "Test Client"
+  }
+}
+
+vars:post-response {
+  createdClientId: res.getBody().client_id
+  createdApiKey: res.getBody().api_key
+}
+
+tests {
+  test("Status code is 201", function() {
+    expect(res.getStatus()).to.equal(201);
+  });
+  
+  test("Response is an object", function() {
+    expect(res.getBody()).to.be.an('object');
+  });
+  
+  test("Created client has correct properties", function() {
+    const client = res.getBody();
+    expect(client.name).to.equal('Test Client');
+    expect(client.enabled).to.equal(true);
+    expect(client).to.have.property('client_id');
+    expect(client).to.have.property('api_key');
+    expect(client.api_key).to.have.lengthOf(64);
+    bru.setVar("createdClientId", res.getBody().client_id);
+      bru.setVar("createdClientApiKey", res.getBody().api_key);
+  });
+  
+  test("Client has created_at timestamp", function() {
+    const client = res.getBody();
+    expect(client).to.have.property('created_at');
+  });
+}
+

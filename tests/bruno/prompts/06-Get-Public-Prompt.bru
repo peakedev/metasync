@@ -1,0 +1,30 @@
+meta {
+  name: Get Public Prompt
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{baseUrl}}/prompts/{{createdPublicPromptId}}
+  body: none
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  client_id: {{clientId}}
+  client_api_key: {{clientApiKey}}
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Response contains public prompt", function() {
+    const prompt = res.getBody();
+    expect(prompt.prompt_id).to.equal(bru.getVar("createdPublicPromptId"));
+    expect(prompt.isPublic).to.equal(true);
+    expect(prompt.client_id).to.be.null;
+  });
+}

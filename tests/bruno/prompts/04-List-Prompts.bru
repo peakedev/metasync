@@ -1,0 +1,55 @@
+meta {
+  name: List All Prompts
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{baseUrl}}/prompts
+  body: none
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  client_id: {{clientId}}
+  client_api_key: {{clientApiKey}}
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Response is an array", function() {
+    expect(res.getBody()).to.be.an('array');
+  });
+  
+  test("Response contains prompts", function() {
+    expect(res.getBody().length).to.be.greaterThanOrEqual(0);
+  });
+  
+  test("Each prompt has required fields", function() {
+    const prompts = res.getBody();
+    if (prompts.length > 0) {
+      const prompt = prompts[0];
+      expect(prompt).to.have.property('prompt_id');
+      expect(prompt).to.have.property('name');
+      expect(prompt).to.have.property('type');
+      expect(prompt).to.have.property('status');
+      expect(prompt).to.have.property('prompt');
+      expect(prompt).to.have.property('version');
+      expect(prompt).to.have.property('isPublic');
+      expect(prompt).to.have.property('created_at');
+    }
+  });
+  
+  test("Response includes both public and private prompts", function() {
+    const prompts = res.getBody();
+    const clientId = bru.getVar("clientId") || bru.getVar("createdClientId");
+    const hasPublic = prompts.some(p => p.isPublic === true);
+    const hasPrivate = prompts.some(p => p.isPublic === false && p.client_id === clientId);
+    // Should have at least one of our private prompts or public prompts
+    expect(hasPublic || hasPrivate).to.be.true;
+  });
+}

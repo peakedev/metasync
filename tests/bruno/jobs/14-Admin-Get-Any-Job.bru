@@ -1,0 +1,28 @@
+meta {
+  name: Admin Get Any Job
+  type: http
+  seq: 20
+}
+
+get {
+  url: {{baseUrl}}/jobs/{{createdJobId}}
+  body: none
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  admin_api_key: {{adminApiKey}}
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Admin can access any job", function() {
+    const job = res.getBody();
+    expect(job).to.have.property('job_id');
+    expect(job).to.have.property('clientId');
+  });
+}

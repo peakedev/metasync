@@ -1,0 +1,44 @@
+meta {
+  name: List All Models
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/models
+  body: none
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  admin_api_key: {{adminApiKey}}
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Response is an array", function() {
+    expect(res.getBody()).to.be.an('array');
+  });
+  
+  test("Response contains models", function() {
+    expect(res.getBody().length).to.be.greaterThanOrEqual(0);
+  });
+  
+  test("Each model has required fields", function() {
+    const models = res.getBody();
+    if (models.length > 0) {
+      const model = models[0];
+      expect(model).to.have.property('model_id');
+      expect(model).to.have.property('name');
+      expect(model).to.have.property('sdk');
+      expect(model).to.have.property('endpoint');
+      expect(model).to.have.property('created_at');
+      expect(model).to.not.have.property('key');
+    }
+  });
+}
+

@@ -1,0 +1,38 @@
+meta {
+  name: Get Prompt By ID
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{baseUrl}}/prompts/{{createdPromptId}}
+  body: none
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  client_id: {{clientId}}
+  client_api_key: {{clientApiKey}}
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Response is an object", function() {
+    expect(res.getBody()).to.be.an('object');
+  });
+  
+  test("Response contains correct prompt", function() {
+    const prompt = res.getBody();
+    expect(prompt.prompt_id).to.equal(bru.getVar("createdPromptId"));
+    expect(prompt).to.have.property('name');
+    expect(prompt).to.have.property('type');
+    expect(prompt).to.have.property('status');
+    expect(prompt).to.have.property('prompt');
+    expect(prompt).to.have.property('version');
+    expect(prompt).to.have.property('isPublic');
+  });
+}

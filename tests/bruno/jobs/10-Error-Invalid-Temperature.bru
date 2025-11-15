@@ -1,0 +1,36 @@
+meta {
+  name: Error Invalid Temperature
+  type: http
+  seq: 16
+}
+
+post {
+  url: {{baseUrl}}/jobs
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  client_id: {{clientId}}
+  client_api_key: {{clientApiKey}}
+}
+
+body:json {
+  {
+    "operation": "process",
+    "prompts": ["{{promptId1}}"],
+    "model": "gpt-4",
+    "temperature": 1.5,
+    "priority": 100,
+    "requestData": {
+      "input": "test"
+    }
+  }
+}
+
+tests {
+  test("Status code is 422", function() {
+    expect(res.getStatus()).to.equal(422);
+  });
+}

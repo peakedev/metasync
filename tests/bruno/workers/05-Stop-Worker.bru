@@ -1,0 +1,33 @@
+meta {
+  name: Stop Worker
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/workers/{{createdWorkerId}}/stop
+  body: none
+  auth: none
+}
+
+headers {
+  client_id: {{clientId}}
+  client_api_key: {{clientApiKey}}
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Response is an object", function() {
+    expect(res.getBody()).to.be.an('object');
+  });
+  
+  test("Worker status is stopped", function() {
+    const worker = res.getBody();
+    expect(worker.status).to.equal('stopped');
+  });
+}
+
+

@@ -1,0 +1,50 @@
+meta {
+  name: Create Public Prompt Flow
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/prompt-flows
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  admin_api_key: {{adminApiKey}}
+}
+
+body:json {
+  {
+    "name": "public-flow",
+    "prompt_ids": ["507f1f77bcf86cd799439014"],
+    "isPublic": true
+  }
+}
+
+tests {
+  test("Status code is 201", function() {
+    expect(res.getStatus()).to.equal(201);
+  });
+  
+  test("Response is an object", function() {
+    expect(res.getBody()).to.be.an('object');
+  });
+  
+  test("Created public prompt flow has correct properties", function() {
+    const flow = res.getBody();
+    expect(flow.name).to.equal('public-flow');
+    expect(flow.prompt_ids).to.be.an('array');
+    expect(flow.isPublic).to.equal(true);
+    expect(flow).to.have.property('flow_id');
+    bru.setVar("createdPublicFlowId", flow.flow_id);
+    expect(flow.client_id).to.be.null;
+  });
+  
+  test("Public prompt flow has created_at timestamp", function() {
+    const flow = res.getBody();
+    expect(flow).to.have.property('created_at');
+  });
+}
+

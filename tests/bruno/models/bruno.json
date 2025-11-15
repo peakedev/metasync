@@ -1,0 +1,10 @@
+{
+  "version": "1",
+  "name": "metasync | Models API Tests",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
+}
+

@@ -1,0 +1,56 @@
+meta {
+  name: Error Batch Invalid Prompt ID
+  type: http
+  seq: 24
+}
+
+post {
+  url: {{baseUrl}}/jobs/batch
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  client_id: {{clientId}}
+  client_api_key: {{clientApiKey}}
+}
+
+body:json {
+  {
+    "jobs": [
+      {
+        "operation": "process",
+        "prompts": ["{{promptId1}}"],
+        "model": "o3-mini",
+        "temperature": 0.7,
+        "priority": 100,
+        "requestData": {
+          "input": "test"
+        }
+      },
+      {
+        "operation": "process",
+        "prompts": ["507f1f77bcf86cd799439011"],
+        "model": "o3-mini",
+        "temperature": 0.7,
+        "priority": 100,
+        "requestData": {
+          "input": "test"
+        }
+      }
+    ]
+  }
+}
+
+tests {
+  test("Status code is 400", function() {
+    expect(res.getStatus()).to.equal(400);
+  });
+  
+  test("Error message indicates validation failed for job in batch", function() {
+    const body = res.getBody();
+    expect(body.detail).to.include('batch');
+    expect(body.detail).to.include('prompt');
+  });
+}

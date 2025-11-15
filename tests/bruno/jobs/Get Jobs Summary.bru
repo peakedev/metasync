@@ -1,0 +1,21 @@
+meta {
+  name: Get Jobs Summary
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/jobs/summary
+  body: none
+  auth: inherit
+}
+
+headers {
+  client_id: {{clientId}}
+  client_api_key: {{clientApiKey}}
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

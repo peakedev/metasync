@@ -1,0 +1,27 @@
+meta {
+  name: Delete Model
+  type: http
+  seq: 5
+}
+
+delete {
+  url: {{baseUrl}}/models/{{createdModelId}}
+  body: none
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  admin_api_key: {{adminApiKey}}
+}
+
+tests {
+  test("Status code is 204", function() {
+    expect(res.getStatus()).to.equal(204);
+  });
+  
+  test("Response body is empty", function() {
+    expect(res.getBody()).to.be.empty;
+  });
+}
+

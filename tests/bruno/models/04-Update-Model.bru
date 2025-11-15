@@ -1,0 +1,56 @@
+meta {
+  name: Update Model
+  type: http
+  seq: 4
+}
+
+patch {
+  url: {{baseUrl}}/models/{{createdModelId}}
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  admin_api_key: {{adminApiKey}}
+}
+
+body:json {
+  {
+    "name": "updated-mistral-medium-2505",
+    "maxToken": 200000,
+    "maxTemperature": 2
+  }
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Response contains updated name", function() {
+    const body = res.getBody();
+    expect(body.name).to.equal("updated-mistral-medium-2505");
+  });
+  
+  test("Response contains updated maxToken", function() {
+    const body = res.getBody();
+    expect(body.maxToken).to.equal(200000);
+  });
+  
+  test("Response contains updated maxTemperature", function() {
+    const body = res.getBody();
+    expect(body.maxTemperature).to.equal(2);
+  });
+  
+  test("Model ID is preserved", function() {
+    const body = res.getBody();
+    expect(body.model_id).to.equal(bru.getVar("createdModelId"));
+  });
+  
+  test("Model has updated_at timestamp", function() {
+    const body = res.getBody();
+    expect(body).to.have.property('updated_at');
+  });
+}
+

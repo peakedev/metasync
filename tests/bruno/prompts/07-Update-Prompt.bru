@@ -1,0 +1,57 @@
+meta {
+  name: Update Prompt
+  type: http
+  seq: 19
+}
+
+patch {
+  url: {{baseUrl}}/prompts/{{createdPromptId}}
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  client_id: {{clientId}}
+  client_api_key: {{clientApiKey}}
+}
+
+body:json {
+  {
+    "status": "PUBLISHED",
+    "prompt": "You are an updated helpful assistant."
+  }
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Response contains updated status", function() {
+    const prompt = res.getBody();
+    expect(prompt.status).to.equal('PUBLISHED');
+  });
+  
+  test("Response contains updated prompt text", function() {
+    const prompt = res.getBody();
+    expect(prompt.prompt).to.equal('You are an updated helpful assistant.');
+  });
+  
+  test("Prompt ID is preserved", function() {
+    const prompt = res.getBody();
+    expect(prompt.prompt_id).to.equal(bru.getVar("createdPromptId"));
+  });
+  
+  test("Other fields are preserved", function() {
+    const prompt = res.getBody();
+    expect(prompt.name).to.equal('test-prompt');
+    expect(prompt.type).to.equal('system');
+  });
+  
+  test("Prompt has updated_at timestamp", function() {
+    const prompt = res.getBody();
+    expect(prompt).to.have.property('updated_at');
+    expect(prompt.updated_at).to.not.be.null;
+  });
+}

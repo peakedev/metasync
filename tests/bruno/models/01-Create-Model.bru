@@ -1,0 +1,77 @@
+meta {
+  name: Create Model
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/models
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  admin_api_key: {{adminApiKey}}
+}
+
+body:json {
+  {
+    "name": "mistral-medium-2505",
+    "sdk": "ChatCompletionsClient",
+    "endpoint": "https://myendpoint.com",
+    "api_type": "foundry",
+    "api_version": "2024-05-01-preview",
+    "deployment": "mistral-medium-2505",
+    "service": "azure-ai",
+    "key": "KEY-MISTRAL-MEDIUM-2505",
+    "maxToken": 100000,
+    "minTemperature": 0,
+    "maxTemperature": 1,
+    "cost": {
+      "tokens": 1000,
+      "currency": "USD",
+      "input": 0.0002,
+      "output": 0.0004
+    }
+  }
+}
+
+vars:post-response {
+  createdModelId: res.getBody().model_id
+}
+
+tests {
+  test("Status code is 201", function() {
+    expect(res.getStatus()).to.equal(201);
+  });
+  
+  test("Response is an object", function() {
+    expect(res.getBody()).to.be.an('object');
+  });
+  
+  test("Created model has correct properties", function() {
+    const model = res.getBody();
+    expect(model.name).to.equal('mistral-medium-2505');
+    expect(model.sdk).to.equal('ChatCompletionsClient');
+    expect(model).to.have.property('model_id');
+    expect(model).to.have.property('key');
+    expect(model.key).to.equal('KEY-MISTRAL-MEDIUM-2505');
+    bru.setVar("createdModelId", res.getBody().model_id);
+  });
+  
+  test("Model has created_at timestamp", function() {
+    const model = res.getBody();
+    expect(model).to.have.property('created_at');
+  });
+  
+  test("Model has cost structure", function() {
+    const model = res.getBody();
+    expect(model).to.have.property('cost');
+    expect(model.cost).to.have.property('tokens');
+    expect(model.cost).to.have.property('currency');
+    expect(model.cost).to.have.property('input');
+    expect(model.cost).to.have.property('output');
+  });
+}
+

@@ -1,0 +1,39 @@
+meta {
+  name: Start Worker
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/workers/{{createdWorkerId}}/start
+  body: none
+  auth: none
+}
+
+headers {
+  client_id: {{clientId}}
+  client_api_key: {{clientApiKey}}
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Response is an object", function() {
+    expect(res.getBody()).to.be.an('object');
+  });
+  
+  test("Worker status is running", function() {
+    const worker = res.getBody();
+    expect(worker.status).to.equal('running');
+    expect(worker).to.have.property('threadInfo');
+    expect(worker.threadInfo).to.not.be.null;
+  });
+  
+  test("Worker has thread information", function() {
+    const worker = res.getBody();
+    expect(worker.threadInfo).to.have.property('startedAt');
+  });
+}
+

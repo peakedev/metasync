@@ -1,0 +1,40 @@
+meta {
+  name: Get Client by ID
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/clients/{{createdClientId}}
+  body: none
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  admin_api_key: {{adminApiKey}}
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Response is an object", function() {
+    expect(res.getBody()).to.be.an('object');
+  });
+  
+  test("Client has required fields", function() {
+    const client = res.getBody();
+    expect(client).to.have.property('client_id');
+    expect(client).to.have.property('name');
+    expect(client).to.have.property('enabled');
+    expect(client).to.have.property('created_at');
+    expect(client).to.not.have.property('api_key');
+  });
+  
+  test("Client ID matches request", function() {
+    expect(res.getBody().client_id).to.equal(bru.getVar("createdClientId"));
+  });
+}
+
