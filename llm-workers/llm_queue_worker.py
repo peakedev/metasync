@@ -610,14 +610,16 @@ class QueueWorker:
                     break
         
         # Close MongoDB connection when stopping
-        try:
-            if hasattr(self, 'mongo_client') and self.mongo_client:
-                self.mongo_client.close()
-                if self.log_level == "DEBUG":
-                    print(f"  🔌 MongoDB connection closed for worker {self.worker_id}")
-        except Exception as e:
-            if self.log_level == "DEBUG":
-                print(f"  ⚠️ Error closing MongoDB connection: {e}")
+        # NOTE: Do not close the client here - it's managed by ClientManager and may be shared
+        # The ClientManager will handle client lifecycle
+        # try:
+        #     if hasattr(self, 'mongo_client') and self.mongo_client:
+        #         self.mongo_client.close()
+        #         if self.log_level == "DEBUG":
+        #             print(f"  🔌 MongoDB connection closed for worker {self.worker_id}")
+        # except Exception as e:
+        #     if self.log_level == "DEBUG":
+        #         print(f"  ⚠️ Error closing MongoDB connection: {e}")
         
         print(f"🛑 Worker {self.worker_id}: Stopped")
 

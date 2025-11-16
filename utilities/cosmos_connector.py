@@ -40,15 +40,27 @@ class ClientManager:
         return cls._instance
     
     def get_client(self, connection_string: str) -> MongoClient:
-        # Check if client already exists (fast path, no lock needed)
+        # Check if client already exists and is still valid (fast path, no lock needed)
         if connection_string in self._clients:
-            return self._clients[connection_string]
+            client = self._clients[connection_string]
+            # Check if the cached client is still valid
+            if not self.is_client_closed(client):
+                return client
+            # Client is closed, remove it from cache so we can create a new one
+            with self._client_lock:
+                # Double-check: another thread might have already removed it
+                if connection_string in self._clients and self._clients[connection_string] is client:
+                    self._clients.pop(connection_string)
         
         # Need to create new client, acquire lock
         with self._client_lock:
             # Double-check pattern: another thread might have created it while we waited
             if connection_string in self._clients:
-                return self._clients[connection_string]
+                client = self._clients[connection_string]
+                if not self.is_client_closed(client):
+                    return client
+                # Client is closed, remove it
+                self._clients.pop(connection_string)
             
             # Create new client and cache it
             client = MongoClient(connection_string)
