@@ -323,7 +323,7 @@ class PromptFlowService:
         return {
             "flowId": str(flow["_id"]),
             "name": flow.get("name"),
-            "prompt_ids": flow.get("prompt_ids", []),
+            "promptIds": flow.get("prompt_ids", []),  # Map from DB field prompt_ids to API field promptIds
             "clientId": flow.get("client_id"),
             "isPublic": flow.get("isPublic", False),
             "created_at": metadata.get("createdAt") or "",

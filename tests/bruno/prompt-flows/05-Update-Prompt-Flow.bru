@@ -12,7 +12,7 @@ patch {
 
 headers {
   Content-Type: application/json
-  clientId: {{clientId}}
+  client_id: {{clientId}}
   client_api_key: {{clientApiKey}}
 }
 
@@ -40,9 +40,10 @@ tests {
     expect(flow.flowId).to.equal(bru.getVar("createdFlowId"));
   });
   
-  test("Prompt flow has updated_at timestamp", function() {
+  test("Prompt flow has _metadata with updatedAt timestamp", function() {
     const flow = res.getBody();
-    expect(flow).to.have.property('updated_at');
+    expect(flow).to.have.property('_metadata');
+    expect(flow._metadata).to.have.property('updatedAt');
   });
 }
 

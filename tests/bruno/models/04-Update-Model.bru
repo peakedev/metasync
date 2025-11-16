@@ -48,9 +48,10 @@ tests {
     expect(body.model_id).to.equal(bru.getVar("createdModelId"));
   });
   
-  test("Model has updated_at timestamp", function() {
+  test("Model has _metadata with updatedAt timestamp", function() {
     const body = res.getBody();
-    expect(body).to.have.property('updated_at');
+    expect(body).to.have.property('_metadata');
+    expect(body._metadata).to.have.property('updatedAt');
   });
 }
 

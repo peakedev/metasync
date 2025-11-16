@@ -71,7 +71,7 @@ async def create_prompt_flow(
             # For public flows, client_id is None
             created_flow = service.create_prompt_flow(
                 name=request.name,
-                prompt_ids=request.prompt_ids,
+                prompt_ids=request.promptIds,
                 is_public=True,
                 client_id=None
             )
@@ -84,7 +84,7 @@ async def create_prompt_flow(
                 )
             created_flow = service.create_prompt_flow(
                 name=request.name,
-                prompt_ids=request.prompt_ids,
+                prompt_ids=request.promptIds,
                 is_public=False,
                 client_id=client_id
             )
@@ -230,7 +230,7 @@ async def update_prompt_flow(
                 flow_id=flow_id,
                 client_id=None,
                 name=request.name,
-                prompt_ids=request.prompt_ids,
+                prompt_ids=request.promptIds,
                 is_public=request.isPublic,
                 is_admin=True
             )
@@ -245,7 +245,7 @@ async def update_prompt_flow(
                 flow_id=flow_id,
                 client_id=client_id,
                 name=request.name,
-                prompt_ids=request.prompt_ids,
+                prompt_ids=request.promptIds,
                 is_public=request.isPublic,
                 is_admin=False
             )

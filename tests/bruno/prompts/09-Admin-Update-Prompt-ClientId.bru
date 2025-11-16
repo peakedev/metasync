@@ -48,10 +48,10 @@ tests {
     expect(prompt.type).to.equal('system');
   });
   
-  test("Prompt has updated_at timestamp", function() {
+  test("Prompt has _metadata with updatedAt timestamp", function() {
     const prompt = res.getBody();
-    expect(prompt).to.have.property('updated_at');
-    expect(prompt.updated_at).to.not.be.null;
+    expect(prompt).to.have.property('_metadata');
+    expect(prompt._metadata).to.have.property('updatedAt');
   });
 }
 

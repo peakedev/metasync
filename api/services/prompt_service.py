@@ -332,7 +332,8 @@ class PromptService:
         
         # Access control: public prompts can only be updated by admin (checked in router)
         # Private prompts can only be updated by owner
-        if not prompt.get("isPublic", False):
+        # Admins can update any prompt
+        if not is_admin and not prompt.get("isPublic", False):
             if not client_id or prompt.get("client_id") != client_id:
                 raise ValueError("Access denied: prompt not found or insufficient permissions")
         

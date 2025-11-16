@@ -324,7 +324,7 @@ class WorkerManager:
             
             # Update status for each worker based on actual thread status
             for worker in workers:
-                worker_id = worker["worker_id"]
+                worker_id = worker["workerId"]
                 if worker_id in self.worker_threads:
                     thread = self.worker_threads[worker_id]
                     if thread.is_alive() and worker.get("status") != WorkerStatus.RUNNING.value:

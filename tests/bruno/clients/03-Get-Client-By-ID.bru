@@ -29,7 +29,8 @@ tests {
     expect(client).to.have.property('clientId');
     expect(client).to.have.property('name');
     expect(client).to.have.property('enabled');
-    expect(client).to.have.property('created_at');
+    expect(client).to.have.property('_metadata');
+    expect(client._metadata).to.have.property('createdAt');
     expect(client).to.not.have.property('api_key');
   });
   

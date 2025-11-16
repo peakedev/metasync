@@ -11,7 +11,7 @@ get {
 }
 
 headers {
-  clientId: {{clientId}}
+  client_id: {{clientId}}
   client_api_key: {{clientApiKey}}
 }
 
@@ -36,7 +36,8 @@ tests {
     expect(worker).to.have.property('clientId');
     expect(worker).to.have.property('status');
     expect(worker).to.have.property('config');
-    expect(worker).to.have.property('created_at');
+    expect(worker).to.have.property('_metadata');
+    expect(worker._metadata).to.have.property('createdAt');
   });
 }
 

@@ -12,7 +12,7 @@ post {
 
 headers {
   Content-Type: application/json
-  clientId: {{clientId}}
+  client_id: {{clientId}}
   client_api_key: {{clientApiKey}}
 }
 
@@ -44,9 +44,10 @@ tests {
     expect(flow.clientId).to.deep.equal(bru.getEnvVar("clientId"));
   });
   
-  test("Prompt flow has created_at timestamp", function() {
+  test("Prompt flow has _metadata with createdAt timestamp", function() {
     const flow = res.getBody();
-    expect(flow).to.have.property('created_at');
+    expect(flow).to.have.property('_metadata');
+    expect(flow._metadata).to.have.property('createdAt');
   });
 }
 

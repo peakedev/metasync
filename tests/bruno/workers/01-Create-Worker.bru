@@ -12,7 +12,7 @@ post {
 
 headers {
   Content-Type: application/json
-  clientId: {{clientId}}
+  client_id: {{clientId}}
   client_api_key: {{clientApiKey}}
 }
 
@@ -58,9 +58,10 @@ tests {
     bru.setVar("createdWorkerIdentifier", worker.workerId);
   });
   
-  test("Worker has created_at timestamp", function() {
+  test("Worker has _metadata with createdAt timestamp", function() {
     const worker = res.getBody();
-    expect(worker).to.have.property('created_at');
+    expect(worker).to.have.property('_metadata');
+    expect(worker._metadata).to.have.property('createdAt');
   });
 }
 

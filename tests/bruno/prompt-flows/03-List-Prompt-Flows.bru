@@ -12,7 +12,7 @@ get {
 
 headers {
   Content-Type: application/json
-  clientId: {{clientId}}
+  client_id: {{clientId}}
   client_api_key: {{clientApiKey}}
 }
 
@@ -37,7 +37,8 @@ tests {
       expect(flow).to.have.property('name');
       expect(flow).to.have.property('promptIds');
       expect(flow).to.have.property('isPublic');
-      expect(flow).to.have.property('created_at');
+      expect(flow).to.have.property('_metadata');
+      expect(flow._metadata).to.have.property('createdAt');
     }
   });
   

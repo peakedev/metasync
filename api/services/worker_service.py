@@ -349,7 +349,6 @@ class WorkerService:
         Returns:
             Formatted worker dictionary
         """
-        metadata = worker.get("_metadata", {})
         config_data = worker.get("config", {})
         
         return {
@@ -364,8 +363,7 @@ class WorkerService:
                 "clientReferenceFilters": config_data.get("clientReferenceFilters")
             },
             "threadInfo": worker.get("threadInfo"),
-            "created_at": metadata.get("createdAt") or "",
-            "updated_at": metadata.get("updatedAt")
+            "_metadata": worker.get("_metadata", {})
         }
 
 

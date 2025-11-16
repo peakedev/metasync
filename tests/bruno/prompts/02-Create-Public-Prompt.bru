@@ -47,9 +47,10 @@ tests {
     bru.setVar("createdPublicPromptId", prompt.promptId);
   });
   
-  test("Prompt has created_at timestamp", function() {
+  test("Prompt has _metadata with createdAt timestamp", function() {
     const prompt = res.getBody();
-    expect(prompt).to.have.property('created_at');
+    expect(prompt).to.have.property('_metadata');
+    expect(prompt._metadata).to.have.property('createdAt');
   });
 }
 

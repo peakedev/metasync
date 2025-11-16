@@ -83,7 +83,7 @@ class ModelUpdateRequest(BaseModel):
 
 class ModelResponse(BaseModel):
     """Response model for model data (without API key)"""
-    model_id: str = Field(..., description="MongoDB document ID")
+    modelId: str = Field(..., alias="model_id", description="MongoDB document ID")
     name: str = Field(..., description="Model name")
     sdk: str = Field(..., description="SDK type")
     endpoint: str = Field(..., description="API endpoint URL")
@@ -101,7 +101,7 @@ class ModelResponse(BaseModel):
         populate_by_name=True,
         json_schema_extra={
             "example": {
-                "model_id": "68d39fe8aac434df5f140c57",
+                "modelId": "68d39fe8aac434df5f140c57",
                 "name": "mistral-medium-2505",
                 "sdk": "ChatCompletionsClient",
                 "endpoint": "https://myendpoint.com",
@@ -135,7 +135,7 @@ class ModelResponse(BaseModel):
 
 class ModelCreateResponse(BaseModel):
     """Response model for model creation (includes key once)"""
-    model_id: str = Field(..., description="MongoDB document ID")
+    modelId: str = Field(..., alias="model_id", description="MongoDB document ID")
     name: str = Field(..., description="Model name")
     sdk: str = Field(..., description="SDK type")
     endpoint: str = Field(..., description="API endpoint URL")
@@ -154,7 +154,7 @@ class ModelCreateResponse(BaseModel):
         populate_by_name=True,
         json_schema_extra={
             "example": {
-                "model_id": "68d39fe8aac434df5f140c57",
+                "modelId": "68d39fe8aac434df5f140c57",
                 "name": "mistral-medium-2505",
                 "sdk": "ChatCompletionsClient",
                 "endpoint": "https://myendpoint.com",

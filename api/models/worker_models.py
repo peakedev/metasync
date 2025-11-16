@@ -40,10 +40,10 @@ class WorkerResponse(BaseModel):
     status: WorkerStatus = Field(..., description="Worker status")
     config: WorkerConfig = Field(..., description="Worker configuration")
     threadInfo: Optional[Dict[str, Any]] = Field(None, description="Thread information (if running)")
-    created_at: str = Field(..., description="Creation timestamp")
-    updated_at: Optional[str] = Field(None, description="Last update timestamp")
+    metadata: Dict[str, Any] = Field(..., alias="_metadata", description="Metadata object with createdAt, updatedAt, and other relevant metadata")
     
     model_config = ConfigDict(
+        populate_by_name=True,
         json_schema_extra={
             "example": {
                 "workerId": "507f1f77bcf86cd799439011",
@@ -57,8 +57,10 @@ class WorkerResponse(BaseModel):
                     "clientReferenceFilters": {"randomProp": "X"}
                 },
                 "threadInfo": None,
-                "created_at": "2024-01-01T00:00:00",
-                "updated_at": "2024-01-01T00:00:00"
+                "_metadata": {
+                    "createdAt": "2024-01-01T00:00:00",
+                    "updatedAt": "2024-01-01T00:00:00"
+                }
             }
         }
     )

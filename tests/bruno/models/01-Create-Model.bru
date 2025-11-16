@@ -60,9 +60,10 @@ tests {
     bru.setVar("createdModelId", res.getBody().model_id);
   });
   
-  test("Model has created_at timestamp", function() {
+  test("Model has _metadata with createdAt timestamp", function() {
     const model = res.getBody();
-    expect(model).to.have.property('created_at');
+    expect(model).to.have.property('_metadata');
+    expect(model._metadata).to.have.property('createdAt');
   });
   
   test("Model has cost structure", function() {

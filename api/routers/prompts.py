@@ -204,14 +204,14 @@ async def update_prompt(
             )
         
         # First, get the prompt to check if it's public or private
-        # If admin is updating client_id, they can access any prompt
+        # Admins can access any prompt
         is_admin_update = admin_api_key is not None
-        existing_prompt = service.get_prompt_by_id(prompt_id, client_id, is_admin=is_admin_update and update_client_id)
+        existing_prompt = service.get_prompt_by_id(prompt_id, client_id, is_admin=is_admin_update)
         
         # Check access: public prompts require admin, private prompts require owner
-        # Exception: if admin is updating client_id, they can update any prompt
+        # Admins can update any prompt
         if existing_prompt.get("isPublic", False):
-            if not is_admin_update and not update_client_id:
+            if not is_admin_update:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Admin API key is required to update public prompts"
@@ -229,13 +229,13 @@ async def update_prompt(
                 update_client_id=update_client_id
             )
         else:
-            # For private prompts, client_id is required (unless admin is updating client_id)
+            # For private prompts, client_id is required (unless admin is updating)
             if not is_admin_update and client_id is None:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Client authentication is required to update private prompts"
                 )
-            # If admin is updating client_id, they can update any prompt
+            # Admins can update any prompt
             # Otherwise, verify the client owns the prompt
             if not is_admin_update and existing_prompt.get("clientId") != client_id:
                 raise HTTPException(

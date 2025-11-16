@@ -46,9 +46,10 @@ tests {
       bru.setVar("createdClientApiKey", res.getBody().api_key);
   });
   
-  test("Client has created_at timestamp", function() {
+  test("Client has _metadata with createdAt timestamp", function() {
     const client = res.getBody();
-    expect(client).to.have.property('created_at');
+    expect(client).to.have.property('_metadata');
+    expect(client._metadata).to.have.property('createdAt');
   });
 }
 

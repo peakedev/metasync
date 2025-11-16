@@ -42,7 +42,8 @@ tests {
     expect(model).to.have.property('minTemperature');
     expect(model).to.have.property('maxTemperature');
     expect(model).to.have.property('cost');
-    expect(model).to.have.property('created_at');
+    expect(model).to.have.property('_metadata');
+    expect(model._metadata).to.have.property('createdAt');
     expect(model).to.not.have.property('key');
   });
 }
