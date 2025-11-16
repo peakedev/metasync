@@ -41,7 +41,8 @@ tests {
     expect(flow.isPublic).to.equal(false);
     expect(flow).to.have.property('flowId');
     bru.setVar("createdFlowId", flow.flowId);
-    expect(flow.clientId).to.deep.equal(bru.getEnvVar("clientId"));
+    const expectedClientId = bru.interpolate('{{clientId}}');
+    expect(flow.clientId).to.deep.equal(expectedClientId);
   });
   
   test("Prompt flow has _metadata with createdAt timestamp", function() {
@@ -50,4 +51,3 @@ tests {
     expect(flow._metadata).to.have.property('createdAt');
   });
 }
-

@@ -44,7 +44,7 @@ tests {
       expect(date.toString()).to.not.equal("Invalid Date");
       const now = new Date();
       expect(date.getTime()).to.be.lessThanOrEqual(now.getTime());
-      expect(model).to.not.have.property('key');
+      expect(models[0]).to.not.have.property('key');
     }
   });
 }

@@ -1,19 +1,18 @@
 meta {
-  name: Delete Auto Version Prompt
+  name: Delete Public Updated Prompt (Admin)
   type: http
-  seq: 19
+  seq: 17
 }
 
 delete {
-  url: {{baseUrl}}/prompts/{{createdAutoVersionPromptId}}
+  url: {{baseUrl}}/prompts/{{createdPrivatePromptId}}
   body: none
   auth: none
 }
 
 headers {
   Content-Type: application/json
-  client_id: {{clientId}}
-  client_api_key: {{clientApiKey}}
+  admin_api_key: {{adminApiKey}}
 }
 
 tests {

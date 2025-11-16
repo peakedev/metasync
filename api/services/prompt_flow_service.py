@@ -319,15 +319,13 @@ class PromptFlowService:
         Returns:
             Formatted prompt flow dictionary
         """
-        metadata = flow.get("_metadata", {})
         return {
             "flowId": str(flow["_id"]),
             "name": flow.get("name"),
             "promptIds": flow.get("prompt_ids", []),  # Map from DB field prompt_ids to API field promptIds
             "clientId": flow.get("client_id"),
             "isPublic": flow.get("isPublic", False),
-            "created_at": metadata.get("createdAt") or "",
-            "updated_at": metadata.get("updatedAt")
+            "_metadata": flow.get("_metadata", {})
         }
 
 

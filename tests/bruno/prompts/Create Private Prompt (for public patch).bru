@@ -1,0 +1,39 @@
+meta {
+  name: Create Private Prompt (for public patch)
+  type: http
+  seq: 13
+}
+
+post {
+  url: {{baseUrl}}/prompts
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  client_id: {{clientId}}
+  client_api_key: {{clientApiKey}}
+}
+
+body:json {
+  {
+    "name": "test-prompt",
+    "type": "system",
+    "status": "DRAFT",
+    "prompt": "You are a helpful assistant.",
+    "isPublic": false
+  }
+}
+
+tests {
+  test("Status code is 201", function() {
+    expect(res.getStatus()).to.equal(201);
+  });
+  
+  test("Created prompt has correct properties", function() {
+    const prompt = res.getBody();
+    bru.setVar("createdPrivatePromptId", prompt.promptId);
+  });
+  
+}

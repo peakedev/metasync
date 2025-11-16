@@ -1,11 +1,11 @@
 meta {
   name: Admin Update Prompt - Remove Client ID and Make Public
   type: http
-  seq: 20.5
+  seq: 14
 }
 
 patch {
-  url: {{baseUrl}}/prompts/{{createdPromptId}}
+  url: {{baseUrl}}/prompts/{{createdPrivatePromptId}}
   body: json
   auth: none
 }
@@ -39,7 +39,7 @@ tests {
   
   test("Prompt ID is preserved", function() {
     const prompt = res.getBody();
-    expect(prompt.promptId).to.equal(bru.getVar("createdPromptId"));
+    expect(prompt.promptId).to.equal(bru.getVar("createdPrivatePromptId"));
   });
   
   test("Other fields are preserved", function() {
@@ -54,5 +54,3 @@ tests {
     expect(prompt._metadata).to.have.property('updatedAt');
   });
 }
-
-

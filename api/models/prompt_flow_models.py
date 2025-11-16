@@ -2,7 +2,7 @@
 Pydantic models for prompt flow management API
 """
 from pydantic import BaseModel, Field, ConfigDict
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 
 
 class PromptFlowCreateRequest(BaseModel):
@@ -26,10 +26,10 @@ class PromptFlowResponse(BaseModel):
     promptIds: List[str] = Field(..., description="Array of prompt IDs")
     clientId: Optional[str] = Field(None, description="Client ID (None for public flows)")
     isPublic: bool = Field(..., description="Whether the prompt flow is public")
-    created_at: str = Field(..., description="Creation timestamp")
-    updated_at: Optional[str] = Field(None, description="Last update timestamp")
+    metadata: Dict[str, Any] = Field(..., alias="_metadata", description="Metadata object with createdAt, updatedAt, and other relevant metadata")
     
     model_config = ConfigDict(
+        populate_by_name=True,
         json_schema_extra={
             "example": {
                 "flowId": "507f1f77bcf86cd799439011",
@@ -37,8 +37,10 @@ class PromptFlowResponse(BaseModel):
                 "promptIds": ["507f1f77bcf86cd799439012", "507f1f77bcf86cd799439013"],
                 "clientId": "123e4567-e89b-12d3-a456-426614174000",
                 "isPublic": False,
-                "created_at": "2024-01-01T00:00:00",
-                "updated_at": "2024-01-01T00:00:00"
+                "_metadata": {
+                    "createdAt": "2024-01-01T00:00:00",
+                    "updatedAt": "2024-01-01T00:00:00"
+                }
             }
         }
     )
