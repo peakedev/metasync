@@ -34,7 +34,8 @@ tests {
   
   test("Client ID matches", function() {
     const body = res.getBody();
-    expect(body.client_id).to.equal(bru.getVar("createdClientId"));
+    expect(body.clientId).to.equal(bru.getVar("createdClientId"));
   });
 }
+
 

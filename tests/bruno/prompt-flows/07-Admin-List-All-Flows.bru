@@ -33,9 +33,9 @@ tests {
   test("Response includes flows from different clients", function() {
     const flows = res.getBody();
     if (flows.length > 1) {
-      const clientIds = flows.map(f => f.client_id).filter(id => id !== null);
+      const clientIds = flows.map(f => f.clientId).filter(id => id !== null);
       const publicFlows = flows.filter(f => f.isPublic === true);
-      // Should have at least some variety (different client_ids or public flows)
+      // Should have at least some variety (different clientIds or public flows)
       expect(clientIds.length > 0 || publicFlows.length > 0).to.be.true;
     }
   });

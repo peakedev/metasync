@@ -1,11 +1,11 @@
 meta {
-  name: Delete Job
+  name: Delete Private Prompt
   type: http
-  seq: 22
+  seq: 21
 }
 
 delete {
-  url: {{baseUrl}}/jobs/{{createdJobId}}
+  url: {{baseUrl}}/prompts/{{createdPromptId}}
   body: none
   auth: none
 }
@@ -20,4 +20,9 @@ tests {
   test("Status code is 204", function() {
     expect(res.getStatus()).to.equal(204);
   });
+  
+  test("Response body is empty", function() {
+    expect(res.getBody()).to.be.empty;
+  });
 }
+

@@ -18,7 +18,7 @@ headers {
 body:json {
   {
     "name": "public-flow",
-    "prompt_ids": ["507f1f77bcf86cd799439014"],
+    "promptIds": ["507f1f77bcf86cd799439014"],
     "isPublic": true
   }
 }
@@ -35,11 +35,11 @@ tests {
   test("Created public prompt flow has correct properties", function() {
     const flow = res.getBody();
     expect(flow.name).to.equal('public-flow');
-    expect(flow.prompt_ids).to.be.an('array');
+    expect(flow.promptIds).to.be.an('array');
     expect(flow.isPublic).to.equal(true);
-    expect(flow).to.have.property('flow_id');
-    bru.setVar("createdPublicFlowId", flow.flow_id);
-    expect(flow.client_id).to.be.null;
+    expect(flow).to.have.property('flowId');
+    bru.setVar("createdPublicFlowId", flow.flowId);
+    expect(flow.clientId).to.be.null;
   });
   
   test("Public prompt flow has created_at timestamp", function() {

@@ -49,7 +49,7 @@ NEW_CLIENT=$(curl -s -X POST "$BASE_URL/clients" \
     "name": "Test Client from Shell"
   }')
 
-CLIENT_ID=$(echo "$NEW_CLIENT" | jq -r '.client_id')
+CLIENT_ID=$(echo "$NEW_CLIENT" | jq -r '.clientId')
 CLIENT_API_KEY=$(echo "$NEW_CLIENT" | jq -r '.api_key')
 if [ "$CLIENT_ID" != "null" ] && [ -n "$CLIENT_ID" ]; then
     CLEANUP_IDS+=("$CLIENT_ID")
@@ -65,7 +65,7 @@ if [ "$CLIENT_ID" != "null" ] && [ -n "$CLIENT_ID" ]; then
     # Verify client structure
     echo ""
     echo "3.1. Testing client structure"
-    HAS_CLIENT_ID=$(echo "$CLIENT_DOC" | jq 'has("client_id")')
+    HAS_CLIENT_ID=$(echo "$CLIENT_DOC" | jq 'has("clientId")')
     HAS_NAME=$(echo "$CLIENT_DOC" | jq 'has("name")')
     HAS_ENABLED=$(echo "$CLIENT_DOC" | jq 'has("enabled")')
     HAS_CREATED_AT=$(echo "$CLIENT_DOC" | jq 'has("created_at")')
@@ -196,5 +196,6 @@ fi
 
 echo ""
 echo "✅ All tests completed successfully!"
+
 
 

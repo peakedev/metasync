@@ -12,26 +12,21 @@ get {
 
 headers {
   Content-Type: application/json
-  client_id: {{clientId}}
+  clientId: {{clientId}}
   client_api_key: {{clientApiKey}}
 }
 
 script:pre-request {
-  // Initialize polling counter if not set
-  if (!bru.getVar("e2ePollCount")) {
-    bru.setVar("e2ePollCount", "0");
+  // Wait before checking job status to give worker time to process
+  // This is a simple approach: wait a fixed time, then check
+  const waitTime = 10000; // Wait 30 seconds before checking (adjust based on expected processing time)
+  
+  console.log(`Waiting ${waitTime / 1000} seconds before checking job status...`);
+  const start = Date.now();
+  while (Date.now() - start < waitTime) {
+    // Busy wait - Bruno doesn't have sleep()
   }
-  
-  // Get current poll count
-  const pollCount = parseInt(bru.getVar("e2ePollCount") || "0");
-  const maxPolls = 30; // Maximum 30 polls
-  
-  if (pollCount >= maxPolls) {
-    throw new Error(`Polling timeout: Job did not complete within ${maxPolls} checks`);
-  }
-  
-  // Increment poll count
-  bru.setVar("e2ePollCount", (pollCount + 1).toString());
+  console.log(`Wait complete, checking job status...`);
 }
 
 tests {
@@ -46,27 +41,29 @@ tests {
   test("Check job status", function() {
     const job = res.getBody();
     const status = job.status;
-    const pollCount = parseInt(bru.getVar("e2ePollCount") || "0");
-    const maxPolls = 30;
     
     bru.setVar("e2eLastStatus", status);
     
     if (status === 'PENDING' || status === 'PROCESSING') {
-      if (pollCount < maxPolls) {
-        // Job is still processing
-        // Note: In Bruno, you can re-run this request manually or use collection runner
-        // The collection runner will automatically re-execute this request
-        console.log(`Job status: ${status}, poll count: ${pollCount}/${maxPolls}`);
-        bru.setVar("e2ePollAgain", "true");
-        // Don't fail the test, just indicate we need to poll again
-      } else {
-        throw new Error(`Job did not complete within ${maxPolls} polls. Last status: ${status}`);
-      }
+      // Job is still processing after wait time
+      // This indicates the worker may not be processing jobs correctly
+      const errorMsg = `Job is still ${status} after waiting 30 seconds. This may indicate:\n` +
+        `1. Worker is not running or crashed - check worker status\n` +
+        `2. Worker cannot find this job - check clientReference filters match\n` +
+        `3. Worker is processing but taking longer than expected\n` +
+        `4. An error occurred during processing - check worker logs\n` +
+        `\nTo debug:\n` +
+        `- Check if worker is running: GET /workers/{workerId}\n` +
+        `- Check worker logs for errors\n` +
+        `- Verify job filters match worker filters (model, operation, clientReference)`;
+      
+      bru.setVar("e2ePollAgain", "true");
+      throw new Error(errorMsg);
     } else {
-      // Job is done (PROCESSED or ERROR)
+      // Job is complete
       bru.setVar("e2eFinalJobStatus", status);
       bru.setVar("e2ePollAgain", "false");
-      console.log(`Job completed with status: ${status} after ${pollCount} polls`);
+      console.log(`✅ Job completed with status: ${status}`);
     }
   });
   
@@ -75,13 +72,15 @@ tests {
     const status = job.status;
     const pollAgain = bru.getVar("e2ePollAgain");
     
-    // Skip assertion if still polling
+    // If we're still polling, the previous test would have thrown an error
+    // So if we reach here, the job should be complete
     if (pollAgain === "true") {
-      return;
+      // This shouldn't happen, but if it does, it means the previous test didn't throw
+      throw new Error("Job is still processing but reached final assertion. This indicates a test logic error.");
     }
     
+    // Job should be complete at this point
     expect(['PROCESSED', 'ERROR']).to.include(status);
     bru.setVar("e2eFinalJobStatus", status);
   });
 }
-

@@ -12,7 +12,7 @@ get {
 
 headers {
   Content-Type: application/json
-  client_id: {{clientId}}
+  clientId: {{clientId}}
   client_api_key: {{clientApiKey}}
 }
 
@@ -27,7 +27,7 @@ tests {
   
   test("Job has all required fields", function() {
     const job = res.getBody();
-    expect(job).to.have.property('job_id');
+    expect(job).to.have.property('jobId');
     expect(job).to.have.property('clientId');
     expect(job).to.have.property('status');
     expect(job).to.have.property('operation');
@@ -43,6 +43,6 @@ tests {
   test("Job ID matches requested ID", function() {
     const job = res.getBody();
     const jobId = bru.getVar("createdJobId");
-    expect(job.job_id).to.equal(jobId);
+    expect(job.jobId).to.equal(jobId);
   });
 }

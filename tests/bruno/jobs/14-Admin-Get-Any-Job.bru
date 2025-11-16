@@ -22,7 +22,7 @@ tests {
   
   test("Admin can access any job", function() {
     const job = res.getBody();
-    expect(job).to.have.property('job_id');
+    expect(job).to.have.property('jobId');
     expect(job).to.have.property('clientId');
   });
 }

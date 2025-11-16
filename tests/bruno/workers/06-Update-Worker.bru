@@ -12,7 +12,7 @@ patch {
 
 headers {
   Content-Type: application/json
-  client_id: {{clientId}}
+  clientId: {{clientId}}
   client_api_key: {{clientApiKey}}
 }
 
@@ -51,5 +51,6 @@ tests {
     expect(worker.status).to.equal('stopped');
   });
 }
+
 
 

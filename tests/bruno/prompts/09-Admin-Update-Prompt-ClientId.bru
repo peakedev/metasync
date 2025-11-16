@@ -1,7 +1,7 @@
 meta {
-  name: Update Prompt
+  name: Admin Update Prompt - Remove Client ID and Make Public
   type: http
-  seq: 19
+  seq: 20.5
 }
 
 patch {
@@ -12,14 +12,13 @@ patch {
 
 headers {
   Content-Type: application/json
-  clientId: {{clientId}}
-  client_api_key: {{clientApiKey}}
+  admin_api_key: {{adminApiKey}}
 }
 
 body:json {
   {
-    "status": "PUBLISHED",
-    "prompt": "You are an updated helpful assistant."
+    "clientId": null,
+    "isPublic": true
   }
 }
 
@@ -28,14 +27,14 @@ tests {
     expect(res.getStatus()).to.equal(200);
   });
   
-  test("Response contains updated status", function() {
+  test("Response contains null clientId", function() {
     const prompt = res.getBody();
-    expect(prompt.status).to.equal('PUBLISHED');
+    expect(prompt.clientId).to.be.null;
   });
   
-  test("Response contains updated prompt text", function() {
+  test("Response contains updated isPublic", function() {
     const prompt = res.getBody();
-    expect(prompt.prompt).to.equal('You are an updated helpful assistant.');
+    expect(prompt.isPublic).to.equal(true);
   });
   
   test("Prompt ID is preserved", function() {
@@ -55,3 +54,5 @@ tests {
     expect(prompt.updated_at).to.not.be.null;
   });
 }
+
+

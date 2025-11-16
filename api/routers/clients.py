@@ -36,10 +36,10 @@ async def create_client(
         client_data, api_key = service.create_client(request.name)
         
         return ClientCreateResponse(
-            client_id=client_data["client_id"],
+            clientId=client_data["clientId"],
             name=client_data["name"],
             enabled=client_data["enabled"],
-            created_at=client_data["created_at"],
+            _metadata=client_data["_metadata"],
             api_key=api_key
         )
     except Exception as e:
@@ -65,10 +65,10 @@ async def list_clients(
         
         return [
             ClientResponse(
-                client_id=client["client_id"],
+                clientId=client["clientId"],
                 name=client["name"],
                 enabled=client["enabled"],
-                created_at=client["created_at"]
+                _metadata=client["_metadata"]
             )
             for client in clients
         ]
@@ -101,10 +101,10 @@ async def get_client(
             )
         
         return ClientResponse(
-            client_id=client["client_id"],
+            clientId=client["clientId"],
             name=client["name"],
             enabled=client["enabled"],
-            created_at=client["created_at"]
+            _metadata=client["_metadata"]
         )
     except HTTPException:
         raise
@@ -150,10 +150,10 @@ async def update_client(
             )
         
         return ClientResponse(
-            client_id=client["client_id"],
+            clientId=client["clientId"],
             name=client["name"],
             enabled=client["enabled"],
-            created_at=client["created_at"]
+            _metadata=client["_metadata"]
         )
     except HTTPException:
         raise
@@ -223,10 +223,10 @@ async def toggle_client_enabled(
             )
         
         return ClientResponse(
-            client_id=client["client_id"],
+            clientId=client["clientId"],
             name=client["name"],
             enabled=client["enabled"],
-            created_at=client["created_at"]
+            _metadata=client["_metadata"]
         )
     except HTTPException:
         raise
@@ -260,7 +260,7 @@ async def rotate_client_key(
             )
         
         return ClientRotateKeyResponse(
-            client_id=rotated_client_id,
+            clientId=rotated_client_id,
             api_key=new_api_key
         )
     except HTTPException:
@@ -271,5 +271,6 @@ async def rotate_client_key(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to rotate client key"
         )
+
 
 

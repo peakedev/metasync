@@ -52,7 +52,7 @@ class JobUpdateRequest(BaseModel):
 
 class JobResponse(BaseModel):
     """Response model for job data"""
-    job_id: str = Field(..., description="Unique job identifier (MongoDB _id)")
+    jobId: str = Field(..., description="Unique job identifier (MongoDB _id)")
     clientId: str = Field(..., description="Client ID that owns the job")
     status: JobStatus = Field(..., description="Job status")
     operation: str = Field(..., description="Operation type")
@@ -71,7 +71,7 @@ class JobResponse(BaseModel):
         populate_by_name=True,
         json_schema_extra={
             "example": {
-                "job_id": "507f1f77bcf86cd799439011",
+                "jobId": "507f1f77bcf86cd799439011",
                 "clientId": "123e4567-e89b-12d3-a456-426614174000",
                 "status": "PENDING",
                 "operation": "process",

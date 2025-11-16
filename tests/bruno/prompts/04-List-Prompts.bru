@@ -12,7 +12,7 @@ get {
 
 headers {
   Content-Type: application/json
-  client_id: {{clientId}}
+  clientId: {{clientId}}
   client_api_key: {{clientApiKey}}
 }
 
@@ -33,7 +33,7 @@ tests {
     const prompts = res.getBody();
     if (prompts.length > 0) {
       const prompt = prompts[0];
-      expect(prompt).to.have.property('prompt_id');
+      expect(prompt).to.have.property('promptId');
       expect(prompt).to.have.property('name');
       expect(prompt).to.have.property('type');
       expect(prompt).to.have.property('status');
@@ -48,7 +48,7 @@ tests {
     const prompts = res.getBody();
     const clientId = bru.getVar("clientId") || bru.getVar("createdClientId");
     const hasPublic = prompts.some(p => p.isPublic === true);
-    const hasPrivate = prompts.some(p => p.isPublic === false && p.client_id === clientId);
+    const hasPrivate = prompts.some(p => p.isPublic === false && p.clientId === clientId);
     // Should have at least one of our private prompts or public prompts
     expect(hasPublic || hasPrivate).to.be.true;
   });

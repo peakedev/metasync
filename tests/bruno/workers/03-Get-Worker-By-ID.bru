@@ -11,7 +11,7 @@ get {
 }
 
 headers {
-  client_id: {{clientId}}
+  clientId: {{clientId}}
   client_api_key: {{clientApiKey}}
 }
 
@@ -27,7 +27,7 @@ tests {
   test("Worker has correct ID", function() {
     const worker = res.getBody();
     const createdWorkerId = bru.getVar("createdWorkerId");
-    expect(worker.worker_id).to.equal(createdWorkerId);
+    expect(worker.workerId).to.equal(createdWorkerId);
   });
   
   test("Worker has all required properties", function() {
@@ -39,5 +39,6 @@ tests {
     expect(worker).to.have.property('created_at');
   });
 }
+
 
 

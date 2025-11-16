@@ -21,10 +21,10 @@ class PromptFlowUpdateRequest(BaseModel):
 
 class PromptFlowResponse(BaseModel):
     """Response model for prompt flow data"""
-    flow_id: str = Field(..., description="Unique prompt flow identifier (MongoDB _id)")
+    flowId: str = Field(..., description="Unique prompt flow identifier (MongoDB _id)")
     name: str = Field(..., description="Prompt flow name")
     prompt_ids: List[str] = Field(..., description="Array of prompt IDs")
-    client_id: Optional[str] = Field(None, description="Client ID (None for public flows)")
+    clientId: Optional[str] = Field(None, description="Client ID (None for public flows)")
     isPublic: bool = Field(..., description="Whether the prompt flow is public")
     created_at: str = Field(..., description="Creation timestamp")
     updated_at: Optional[str] = Field(None, description="Last update timestamp")
@@ -32,10 +32,10 @@ class PromptFlowResponse(BaseModel):
     class Config:
         json_schema_extra = {
             "example": {
-                "flow_id": "507f1f77bcf86cd799439011",
+                "flowId": "507f1f77bcf86cd799439011",
                 "name": "main-flow",
                 "prompt_ids": ["507f1f77bcf86cd799439012", "507f1f77bcf86cd799439013"],
-                "client_id": "123e4567-e89b-12d3-a456-426614174000",
+                "clientId": "123e4567-e89b-12d3-a456-426614174000",
                 "isPublic": False,
                 "created_at": "2024-01-01T00:00:00",
                 "updated_at": "2024-01-01T00:00:00"

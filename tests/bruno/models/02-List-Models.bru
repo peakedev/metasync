@@ -36,9 +36,15 @@ tests {
       expect(model).to.have.property('name');
       expect(model).to.have.property('sdk');
       expect(model).to.have.property('endpoint');
-      expect(model).to.have.property('created_at');
+      expect(model).to.have.property('_metadata');
+      const meta = model._metadata;
+      expect(meta).to.have.property('createdAt');
+      expect(meta.createdAt).to.be.a('string');
+      const date = new Date(meta.createdAt);
+      expect(date.toString()).to.not.equal("Invalid Date");
+      const now = new Date();
+      expect(date.getTime()).to.be.lessThanOrEqual(now.getTime());
       expect(model).to.not.have.property('key');
     }
   });
 }
-

@@ -12,7 +12,7 @@ post {
 
 headers {
   Content-Type: application/json
-  client_id: {{clientId}}
+  clientId: {{clientId}}
   client_api_key: {{clientApiKey}}
 }
 
@@ -87,13 +87,13 @@ tests {
     expect(job1.temperature).to.equal(0.7);
     expect(job1.priority).to.equal(100);
     expect(job1.status).to.equal('PENDING');
-    expect(job1).to.have.property('job_id');
+    expect(job1).to.have.property('jobId');
     expect(job1).to.have.property('clientId');
     expect(job1).to.have.property('requestData');
     expect(job1.requestData.input).to.equal('Hello, this is batch job 1');
     expect(job1).to.have.property('clientReference');
     expect(job1.clientReference.ref).to.equal('batch-ref-1');
-    bru.setVar("createdBatchJobId1", job1.job_id);
+    bru.setVar("createdBatchJobId1", job1.jobId);
   });
   
   test("Second job has correct properties", function() {
@@ -103,10 +103,10 @@ tests {
     expect(job2.temperature).to.equal(0.8);
     expect(job2.priority).to.equal(200);
     expect(job2.status).to.equal('PENDING');
-    expect(job2).to.have.property('job_id');
+    expect(job2).to.have.property('jobId');
     expect(job2.requestData.input).to.equal('Hello, this is batch job 2');
     expect(job2.clientReference.ref).to.equal('batch-ref-2');
-    bru.setVar("createdBatchJobId2", job2.job_id);
+    bru.setVar("createdBatchJobId2", job2.jobId);
   });
   
   test("Third job has correct properties", function() {
@@ -116,9 +116,9 @@ tests {
     expect(job3.temperature).to.equal(0.6);
     expect(job3.priority).to.equal(150);
     expect(job3.status).to.equal('PENDING');
-    expect(job3).to.have.property('job_id');
+    expect(job3).to.have.property('jobId');
     expect(job3.requestData.input).to.equal('Hello, this is batch job 3 (no custom ID)');
-    bru.setVar("createdBatchJobId3", job3.job_id);
+    bru.setVar("createdBatchJobId3", job3.jobId);
   });
   
   test("All jobs have _metadata with createdAt timestamp", function() {

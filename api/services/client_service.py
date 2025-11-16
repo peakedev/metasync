@@ -122,7 +122,7 @@ class ClientService:
         
         # Create client document
         client_doc = {
-            "client_id": client_id,
+            "clientId": client_id,
             "name": name,
             "enabled": True,
             "salt": salt,
@@ -143,12 +143,21 @@ class ClientService:
         
         logger.info("Client created successfully", client_id=client_id, name=name)
         
+        # Get the created client document to retrieve full metadata
+        from utilities.cosmos_connector import get_document_by_id
+        created_client = get_document_by_id(
+            self.mongo_client,
+            self.db_name,
+            self.collection_name,
+            db_id
+        )
+        
         # Return client data (without API key in doc) and API key separately
         client_data = {
-            "client_id": client_id,
+            "clientId": client_id,
             "name": name,
             "enabled": True,
-            "created_at": client_doc["_metadata"]["createdAt"]
+            "_metadata": created_client.get("_metadata", {}) if created_client else {}
         }
         
         return client_data, api_key
@@ -167,16 +176,16 @@ class ClientService:
             self.db_name,
             self.collection_name,
             query={},
-            projection={"client_id": 1, "name": 1, "enabled": 1, "_metadata.createdAt": 1}
+            projection={"clientId": 1, "name": 1, "enabled": 1, "_metadata": 1}
         )
         
         result = []
         for client in clients:
             result.append({
-                "client_id": client.get("client_id"),
+                "clientId": client.get("clientId"),
                 "name": client.get("name"),
                 "enabled": client.get("enabled", True),
-                "created_at": client.get("_metadata", {}).get("createdAt")
+                "_metadata": client.get("_metadata", {})
             })
         
         logger.info("Listed clients", count=len(result))
@@ -198,8 +207,8 @@ class ClientService:
             self.mongo_client,
             self.db_name,
             self.collection_name,
-            query={"client_id": client_id},
-            projection={"client_id": 1, "name": 1, "enabled": 1, "_metadata.createdAt": 1}
+            query={"clientId": client_id},
+            projection={"clientId": 1, "name": 1, "enabled": 1, "_metadata": 1}
         )
         
         if not client:
@@ -207,10 +216,10 @@ class ClientService:
             return None
         
         return {
-            "client_id": client.get("client_id"),
+            "clientId": client.get("clientId"),
             "name": client.get("name"),
             "enabled": client.get("enabled", True),
-            "created_at": client.get("_metadata", {}).get("createdAt")
+            "_metadata": client.get("_metadata", {})
         }
     
     def get_client_for_auth(self, client_id: str) -> Optional[Dict[str, Any]]:
@@ -230,8 +239,8 @@ class ClientService:
             self.mongo_client,
             self.db_name,
             self.collection_name,
-            query={"client_id": client_id},
-            projection={"client_id": 1, "enabled": 1, "salt": 1, "hash": 1}
+            query={"clientId": client_id},
+            projection={"clientId": 1, "enabled": 1, "salt": 1, "hash": 1}
         )
         
         if not client:
@@ -243,7 +252,7 @@ class ClientService:
             return None
         
         return {
-            "client_id": client.get("client_id"),
+            "clientId": client.get("clientId"),
             "enabled": client.get("enabled", True),
             "salt": client.get("salt"),
             "hash": client.get("hash")
@@ -268,7 +277,7 @@ class ClientService:
             self.mongo_client,
             self.db_name,
             self.collection_name,
-            query={"client_id": client_id}
+            query={"clientId": client_id}
         )
         
         if not client:
@@ -322,7 +331,7 @@ class ClientService:
             self.mongo_client,
             self.db_name,
             self.collection_name,
-            query={"client_id": client_id}
+            query={"clientId": client_id}
         )
         
         if not client:
@@ -365,7 +374,7 @@ class ClientService:
             self.mongo_client,
             self.db_name,
             self.collection_name,
-            query={"client_id": client_id}
+            query={"clientId": client_id}
         )
         
         if not client:
@@ -411,7 +420,7 @@ class ClientService:
             self.mongo_client,
             self.db_name,
             self.collection_name,
-            query={"client_id": client_id}
+            query={"clientId": client_id}
         )
         
         if not client:

@@ -11,7 +11,7 @@ post {
 }
 
 headers {
-  client_id: {{clientId}}
+  clientId: {{clientId}}
   client_api_key: {{clientApiKey}}
 }
 
@@ -36,4 +36,3 @@ tests {
     expect(worker.threadInfo).to.have.property('startedAt');
   });
 }
-

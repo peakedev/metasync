@@ -12,14 +12,14 @@ patch {
 
 headers {
   Content-Type: application/json
-  client_id: {{clientId}}
+  clientId: {{clientId}}
   client_api_key: {{clientApiKey}}
 }
 
 body:json {
   {
     "name": "updated-flow",
-    "prompt_ids": ["507f1f77bcf86cd799439012", "507f1f77bcf86cd799439013", "507f1f77bcf86cd799439014"]
+    "promptIds": ["507f1f77bcf86cd799439012", "507f1f77bcf86cd799439013", "507f1f77bcf86cd799439014"]
   }
 }
 
@@ -35,9 +35,9 @@ tests {
   test("Updated prompt flow has correct properties", function() {
     const flow = res.getBody();
     expect(flow.name).to.equal('updated-flow');
-    expect(flow.prompt_ids).to.be.an('array');
-    expect(flow.prompt_ids).to.have.lengthOf(3);
-    expect(flow.flow_id).to.equal(bru.getVar("createdFlowId"));
+    expect(flow.promptIds).to.be.an('array');
+    expect(flow.promptIds).to.have.lengthOf(3);
+    expect(flow.flowId).to.equal(bru.getVar("createdFlowId"));
   });
   
   test("Prompt flow has updated_at timestamp", function() {

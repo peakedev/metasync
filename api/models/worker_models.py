@@ -35,8 +35,7 @@ class WorkerUpdateRequest(BaseModel):
 
 class WorkerResponse(BaseModel):
     """Response model for worker data"""
-    worker_id: str = Field(..., description="Unique worker identifier (MongoDB _id)")
-    workerId: str = Field(..., description="Client-provided worker ID")
+    workerId: str = Field(..., description="Unique worker identifier (MongoDB _id)")
     clientId: str = Field(..., description="Client ID that owns the worker")
     status: WorkerStatus = Field(..., description="Worker status")
     config: WorkerConfig = Field(..., description="Worker configuration")
@@ -47,8 +46,7 @@ class WorkerResponse(BaseModel):
     class Config:
         json_schema_extra = {
             "example": {
-                "worker_id": "507f1f77bcf86cd799439011",
-                "workerId": "worker-001",
+                "workerId": "507f1f77bcf86cd799439011",
                 "clientId": "123e4567-e89b-12d3-a456-426614174000",
                 "status": "stopped",
                 "config": {
@@ -88,5 +86,6 @@ class WorkerOverviewResponse(BaseModel):
                 "workers": []
             }
         }
+
 
 

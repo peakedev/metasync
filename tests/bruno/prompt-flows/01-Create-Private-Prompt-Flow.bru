@@ -12,14 +12,14 @@ post {
 
 headers {
   Content-Type: application/json
-  client_id: {{clientId}}
+  clientId: {{clientId}}
   client_api_key: {{clientApiKey}}
 }
 
 body:json {
   {
     "name": "test-flow",
-    "prompt_ids": ["507f1f77bcf86cd799439012", "507f1f77bcf86cd799439013"],
+    "promptIds": ["507f1f77bcf86cd799439012", "507f1f77bcf86cd799439013"],
     "isPublic": false
   }
 }
@@ -36,12 +36,12 @@ tests {
   test("Created prompt flow has correct properties", function() {
     const flow = res.getBody();
     expect(flow.name).to.equal('test-flow');
-    expect(flow.prompt_ids).to.be.an('array');
-    expect(flow.prompt_ids).to.have.lengthOf(2);
+    expect(flow.promptIds).to.be.an('array');
+    expect(flow.promptIds).to.have.lengthOf(2);
     expect(flow.isPublic).to.equal(false);
-    expect(flow).to.have.property('flow_id');
-    bru.setVar("createdFlowId", flow.flow_id);
-    expect(flow.client_id).to.deep.equal(bru.getEnvVar("clientId"));
+    expect(flow).to.have.property('flowId');
+    bru.setVar("createdFlowId", flow.flowId);
+    expect(flow.clientId).to.deep.equal(bru.getEnvVar("clientId"));
   });
   
   test("Prompt flow has created_at timestamp", function() {

@@ -12,7 +12,7 @@ post {
 
 headers {
   Content-Type: application/json
-  client_id: {{clientId}}
+  clientId: {{clientId}}
   client_api_key: {{clientApiKey}}
 }
 
@@ -42,7 +42,7 @@ tests {
   
   test("Created worker has correct properties", function() {
     const worker = res.getBody();
-    expect(worker).to.have.property('worker_id');
+    expect(worker).to.have.property('workerId');
     expect(worker).to.have.property('workerId');
     expect(worker).to.have.property('clientId');
     expect(worker).to.have.property('status');
@@ -54,7 +54,7 @@ tests {
     expect(worker.config.operationFilter).to.equal('process');
     expect(worker.config.clientReferenceFilters).to.be.an('object');
     expect(worker.config.clientReferenceFilters.ref).to.equal(bru.getVar("e2eClientRef"));
-    bru.setVar("e2eWorkerId", worker.worker_id);
+    bru.setVar("e2eWorkerId", worker.workerId);
   });
   
   test("Worker has created_at timestamp", function() {

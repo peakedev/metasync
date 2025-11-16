@@ -32,7 +32,7 @@ tests {
     const clients = res.getBody();
     if (clients.length > 0) {
       const client = clients[0];
-      expect(client).to.have.property('client_id');
+      expect(client).to.have.property('clientId');
       expect(client).to.have.property('name');
       expect(client).to.have.property('enabled');
       expect(client).to.have.property('created_at');
@@ -40,4 +40,5 @@ tests {
     }
   });
 }
+
 

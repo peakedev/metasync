@@ -11,7 +11,7 @@ delete {
 }
 
 headers {
-  client_id: {{clientId}}
+  clientId: {{clientId}}
   client_api_key: {{clientApiKey}}
 }
 
@@ -26,4 +26,5 @@ tests {
     expect(res.getStatus()).to.equal(204);
   });
 }
+
 

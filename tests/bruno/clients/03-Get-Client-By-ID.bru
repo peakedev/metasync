@@ -26,7 +26,7 @@ tests {
   
   test("Client has required fields", function() {
     const client = res.getBody();
-    expect(client).to.have.property('client_id');
+    expect(client).to.have.property('clientId');
     expect(client).to.have.property('name');
     expect(client).to.have.property('enabled');
     expect(client).to.have.property('created_at');
@@ -34,7 +34,8 @@ tests {
   });
   
   test("Client ID matches request", function() {
-    expect(res.getBody().client_id).to.equal(bru.getVar("createdClientId"));
+    expect(res.getBody().clientId).to.equal(bru.getVar("createdClientId"));
   });
 }
+
 

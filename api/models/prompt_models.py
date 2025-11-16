@@ -1,8 +1,8 @@
 """
 Pydantic models for prompt management API
 """
-from pydantic import BaseModel, Field, field_validator
-from typing import Optional, Union
+from pydantic import BaseModel, Field, field_validator, ConfigDict
+from typing import Optional, Union, Dict, Any
 from enum import Enum
 
 
@@ -29,34 +29,40 @@ class PromptUpdateRequest(BaseModel):
     status: Optional[PromptStatus] = Field(None, description="Prompt status")
     prompt: Optional[str] = Field(None, description="The actual prompt text")
     isPublic: Optional[bool] = Field(None, description="Whether the prompt is public")
+    clientId: Optional[str] = Field(None, description="Client ID (admin only, can be nullified if isPublic is true)")
 
 
 class PromptResponse(BaseModel):
     """Response model for prompt data"""
-    prompt_id: str = Field(..., description="Unique prompt identifier (MongoDB _id)")
+    promptId: str = Field(..., description="Unique prompt identifier (MongoDB _id)")
     name: str = Field(..., description="Prompt name")
     version: Union[str, int] = Field(..., description="Prompt version")
     type: str = Field(..., description="Prompt type")
     status: PromptStatus = Field(..., description="Prompt status")
     prompt: str = Field(..., description="The actual prompt text")
-    client_id: Optional[str] = Field(None, description="Client ID (None for public prompts)")
+    clientId: Optional[str] = Field(None, description="Client ID (None for public prompts)")
     isPublic: bool = Field(..., description="Whether the prompt is public")
-    created_at: str = Field(..., description="Creation timestamp")
-    updated_at: Optional[str] = Field(None, description="Last update timestamp")
+    metadata: Dict[str, Any] = Field(..., alias="_metadata", description="Metadata object with createdAt, updatedAt, and other relevant metadata")
+    
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
     
     class Config:
         json_schema_extra = {
             "example": {
-                "prompt_id": "507f1f77bcf86cd799439011",
+                "promptId": "507f1f77bcf86cd799439011",
                 "name": "main",
                 "version": 1,
                 "type": "system",
                 "status": "PUBLISHED",
                 "prompt": "You are a helpful assistant.",
-                "client_id": "123e4567-e89b-12d3-a456-426614174000",
+                "clientId": "123e4567-e89b-12d3-a456-426614174000",
                 "isPublic": False,
-                "created_at": "2024-01-01T00:00:00",
-                "updated_at": "2024-01-01T00:00:00"
+                "_metadata": {
+                    "createdAt": "2024-01-01T00:00:00",
+                    "updatedAt": "2024-01-01T00:00:00"
+                }
             }
         }
 

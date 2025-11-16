@@ -35,14 +35,14 @@ def complete_with_model(
     model_name = mdl.get("name")
     sdk = mdl.get("sdk")
     endpoint = mdl.get("endpoint")
-    api_version = mdl.get("api_version")
+    api_version = mdl.get("apiVersion")
     deployment = mdl.get("deployment")
     max_temperature = mdl.get("maxTemperature", 1)
     min_temperature = mdl.get("minTemperature", 0)
     temperature = max(min(temperature, max_temperature), min_temperature) # Ensure temperature is within the specified range
     
     if not (model_name and sdk and endpoint and api_version and deployment):
-        raise ValueError("Model config is incomplete; need name, sdk, endpoint, api_version, deployment.")
+        raise ValueError("Model config is incomplete; need name, sdk, endpoint, apiVersion, deployment.")
     
     # Get API key from config using the model name
     api_key = config.get_model_key(model_name)

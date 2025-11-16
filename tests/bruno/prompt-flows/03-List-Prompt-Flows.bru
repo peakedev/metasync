@@ -12,7 +12,7 @@ get {
 
 headers {
   Content-Type: application/json
-  client_id: {{clientId}}
+  clientId: {{clientId}}
   client_api_key: {{clientApiKey}}
 }
 
@@ -33,9 +33,9 @@ tests {
     const flows = res.getBody();
     if (flows.length > 0) {
       const flow = flows[0];
-      expect(flow).to.have.property('flow_id');
+      expect(flow).to.have.property('flowId');
       expect(flow).to.have.property('name');
-      expect(flow).to.have.property('prompt_ids');
+      expect(flow).to.have.property('promptIds');
       expect(flow).to.have.property('isPublic');
       expect(flow).to.have.property('created_at');
     }
@@ -45,7 +45,7 @@ tests {
     const flows = res.getBody();
     const clientId = bru.getVar("clientId") || bru.getVar("createdClientId");
     const hasPublic = flows.some(f => f.isPublic === true);
-    const hasPrivate = flows.some(f => f.isPublic === false && f.client_id === clientId);
+    const hasPrivate = flows.some(f => f.isPublic === false && f.clientId === clientId);
     // Should have at least one of our private flows or public flows
     expect(hasPublic || hasPrivate).to.be.true;
   });

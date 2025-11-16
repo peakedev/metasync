@@ -12,7 +12,7 @@ post {
 
 headers {
   Content-Type: application/json
-  client_id: {{clientId}}
+  clientId: {{clientId}}
   client_api_key: {{clientApiKey}}
 }
 
@@ -42,11 +42,13 @@ tests {
     expect(prompt.status).to.equal('DRAFT');
     expect(prompt.prompt).to.equal('You are a helpful assistant.');
     expect(prompt.isPublic).to.equal(false);
-    expect(prompt).to.have.property('prompt_id');
+    expect(prompt).to.have.property('promptId');
     expect(prompt).to.have.property('version');
-    expect(prompt).to.have.property('client_id');
-    bru.setVar("createdPromptId", prompt.prompt_id);
-    expect(prompt.client_id).to.deep.equal(bru.getEnvVar("clientId"));
+    expect(prompt).to.have.property('clientId');
+    bru.setVar("createdPromptId", prompt.promptId);
+    const expectedClientId = bru.interpolate('{{clientId}}');
+    expect(prompt.clientId).to.deep.equal(expectedClientId);
+    //expect(prompt.clientId).to.deep.equal(bru.getEnvVar("clientId"));
   });
   
   test("Prompt has created_at timestamp", function() {

@@ -12,7 +12,7 @@ get {
 
 headers {
   Content-Type: application/json
-  client_id: {{clientId}}
+  clientId: {{clientId}}
   client_api_key: {{clientApiKey}}
 }
 
@@ -27,7 +27,7 @@ tests {
   
   test("Response contains correct prompt", function() {
     const prompt = res.getBody();
-    expect(prompt.prompt_id).to.equal(bru.getVar("createdPromptId"));
+    expect(prompt.promptId).to.equal(bru.getVar("createdPromptId"));
     expect(prompt).to.have.property('name');
     expect(prompt).to.have.property('type');
     expect(prompt).to.have.property('status');

@@ -1,11 +1,11 @@
 meta {
-  name: Delete Client
+  name: Delete Public Prompt (Admin)
   type: http
-  seq: 8
+  seq: 22
 }
 
 delete {
-  url: {{baseUrl}}/clients/{{createdClientId}}
+  url: {{baseUrl}}/prompts/{{createdPublicPromptId}}
   body: none
   auth: none
 }
@@ -19,6 +19,9 @@ tests {
   test("Status code is 204", function() {
     expect(res.getStatus()).to.equal(204);
   });
+  
+  test("Response body is empty", function() {
+    expect(res.getBody()).to.be.empty;
+  });
 }
-
 

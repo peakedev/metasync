@@ -11,7 +11,7 @@ get {
 }
 
 headers {
-  client_id: {{clientId}}
+  clientId: {{clientId}}
   client_api_key: {{clientApiKey}}
 }
 
@@ -27,10 +27,11 @@ tests {
   test("Array contains created worker", function() {
     const workers = res.getBody();
     const createdWorkerId = bru.getVar("createdWorkerId");
-    const found = workers.find(w => w.worker_id === createdWorkerId);
+    const found = workers.find(w => w.workerId === createdWorkerId);
     expect(found).to.not.be.undefined;
     expect(found.status).to.equal('stopped');
   });
 }
+
 
 

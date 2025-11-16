@@ -12,7 +12,7 @@ get {
 
 headers {
   Content-Type: application/json
-  client_id: {{clientId}}
+  clientId: {{clientId}}
   client_api_key: {{clientApiKey}}
 }
 
@@ -33,7 +33,7 @@ tests {
     const jobs = res.getBody();
     if (jobs.length > 0) {
       const job = jobs[0];
-      expect(job).to.have.property('job_id');
+      expect(job).to.have.property('jobId');
       expect(job).to.have.property('clientId');
       expect(job).to.have.property('status');
       expect(job).to.have.property('operation');
@@ -44,15 +44,15 @@ tests {
       expect(job).to.have.property('requestData');
       expect(job).to.have.property('_metadata');
       expect(job._metadata).to.have.property('createdAt');
-      bru.setVar("firstJobId",job.job_id)
+      bru.setVar("firstJobId",job.jobId)
     }
   });
   
   test("Client only sees their own jobs", function() {
     const jobs = res.getBody();
-    const clientId = bru.getEnvVar("clientId");
     jobs.forEach(job => {
-      expect(job.clientId).to.equal(clientId);
+      const expectedClientId = bru.interpolate('{{clientId}}');
+      expect(job.clientId).to.deep.equal(expectedClientId);
     });
   });
 }

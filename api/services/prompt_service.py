@@ -17,6 +17,7 @@ from utilities.cosmos_connector import (
 )
 from api.core.logging import get_logger, BusinessLogger
 from api.models.prompt_models import PromptStatus
+from api.services.client_service import get_client_service
 
 logger = get_logger("api.services.prompt_service")
 business_logger = BusinessLogger()
@@ -253,13 +254,14 @@ class PromptService:
         logger.info("Listed prompts", count=len(result), client_id=client_id)
         return result
     
-    def get_prompt_by_id(self, prompt_id: str, client_id: Optional[str] = None) -> Dict[str, Any]:
+    def get_prompt_by_id(self, prompt_id: str, client_id: Optional[str] = None, is_admin: bool = False) -> Dict[str, Any]:
         """
         Get a prompt by ID with access control.
         
         Args:
             prompt_id: Prompt document ID
             client_id: Optional client ID for access control
+            is_admin: Whether the requester is an admin (bypasses access control)
             
         Returns:
             Prompt dictionary
@@ -267,7 +269,7 @@ class PromptService:
         Raises:
             ValueError: If prompt not found or access denied
         """
-        business_logger.log_operation("prompt_service", "get_prompt_by_id", prompt_id=prompt_id, client_id=client_id)
+        business_logger.log_operation("prompt_service", "get_prompt_by_id", prompt_id=prompt_id, client_id=client_id, is_admin=is_admin)
         
         prompt = get_document_by_id(
             self.mongo_client,
@@ -280,7 +282,8 @@ class PromptService:
             raise ValueError(f"Prompt not found: {prompt_id}")
         
         # Access control: public prompts accessible to all, private prompts only to owner
-        if not prompt.get("isPublic", False):
+        # Admins can access any prompt
+        if not is_admin and not prompt.get("isPublic", False):
             if not client_id or prompt.get("client_id") != client_id:
                 raise ValueError("Access denied: prompt not found or insufficient permissions")
         
@@ -290,7 +293,10 @@ class PromptService:
                      version: Optional[Union[str, int]] = None,
                      status: Optional[PromptStatus] = None,
                      prompt_text: Optional[str] = None,
-                     is_public: Optional[bool] = None) -> Dict[str, Any]:
+                     is_public: Optional[bool] = None,
+                     new_client_id: Optional[str] = None,
+                     is_admin: bool = False,
+                     update_client_id: bool = False) -> Dict[str, Any]:
         """
         Update a prompt with access control.
         
@@ -301,12 +307,15 @@ class PromptService:
             status: Optional new status
             prompt_text: Optional new prompt text
             is_public: Optional new isPublic value
+            new_client_id: Optional new client_id (admin only)
+            is_admin: Whether the requester is an admin
+            update_client_id: Whether client_id update was requested
             
         Returns:
             Updated prompt dictionary
             
         Raises:
-            ValueError: If prompt not found, access denied, or version conflict
+            ValueError: If prompt not found, access denied, version conflict, or invalid client_id
         """
         business_logger.log_operation("prompt_service", "update_prompt", prompt_id=prompt_id, client_id=client_id)
         
@@ -338,6 +347,34 @@ class PromptService:
                                                  existing_is_public, exclude_id=prompt_id):
                 raise ValueError(f"Version {version} already exists for prompt '{name}' with type '{type_name}'")
         
+        # Handle client_id updates (admin only)
+        # Determine final isPublic value (use new value if provided, otherwise existing)
+        final_is_public = is_public if is_public is not None else prompt.get("isPublic", False)
+        
+        # Process client_id update if explicitly requested (admin only)
+        if update_client_id:
+            if not is_admin:
+                raise ValueError("Only admins can update client_id")
+            
+            # Validate client_id exists if provided (not None and not empty)
+            if new_client_id is not None and new_client_id != "":
+                client_service = get_client_service()
+                existing_client = client_service.get_client(new_client_id)
+                if existing_client is None:
+                    raise ValueError(f"Client not found: {new_client_id}")
+            
+            # Business rule: client_id can be removed/nullified only if isPublic is true
+            if (new_client_id is None or new_client_id == "") and not final_is_public:
+                raise ValueError("Cannot remove client_id when isPublic is false")
+            
+            # Business rule: if isPublic is false, client_id must be valid
+            if final_is_public is False and (new_client_id is None or new_client_id == ""):
+                raise ValueError("client_id is required when isPublic is false")
+            
+            # Business rule: if isPublic is true, client_id must be None
+            if final_is_public is True and (new_client_id is not None and new_client_id != ""):
+                raise ValueError("client_id must be null when isPublic is true")
+        
         # Build update document
         updates = {}
         if version is not None:
@@ -350,12 +387,16 @@ class PromptService:
             updates["isPublic"] = is_public
             # If changing from public to private, need client_id
             if is_public is False and not prompt.get("client_id"):
-                if not client_id:
+                if not client_id and new_client_id is None:
                     raise ValueError("Cannot make prompt private without client_id")
-                updates["client_id"] = client_id
+                updates["client_id"] = new_client_id if new_client_id is not None else client_id
             # If changing from private to public, remove client_id (admin only)
             elif is_public is True:
                 updates["client_id"] = None
+        
+        # Handle client_id update separately (admin only)
+        if update_client_id:
+            updates["client_id"] = new_client_id if new_client_id else None
         
         if not updates:
             logger.warning("No updates provided", prompt_id=prompt_id)
@@ -466,18 +507,16 @@ class PromptService:
         Returns:
             Formatted prompt dictionary
         """
-        metadata = prompt.get("_metadata", {})
         return {
-            "prompt_id": str(prompt["_id"]),
+            "promptId": str(prompt["_id"]),
             "name": prompt.get("name"),
             "version": prompt.get("version"),
             "type": prompt.get("type"),
             "status": self._normalize_status(prompt.get("status")),
             "prompt": prompt.get("prompt"),
-            "client_id": prompt.get("client_id"),
+            "clientId": prompt.get("client_id"),
             "isPublic": prompt.get("isPublic", False),
-            "created_at": metadata.get("createdAt") or "",
-            "updated_at": metadata.get("updatedAt")
+            "_metadata": prompt.get("_metadata", {})
         }
 
 

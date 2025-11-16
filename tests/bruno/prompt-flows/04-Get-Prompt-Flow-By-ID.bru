@@ -12,7 +12,7 @@ get {
 
 headers {
   Content-Type: application/json
-  client_id: {{clientId}}
+  clientId: {{clientId}}
   client_api_key: {{clientApiKey}}
 }
 
@@ -27,9 +27,9 @@ tests {
   
   test("Response contains correct prompt flow", function() {
     const flow = res.getBody();
-    expect(flow.flow_id).to.equal(bru.getVar("createdFlowId"));
+    expect(flow.flowId).to.equal(bru.getVar("createdFlowId"));
     expect(flow).to.have.property('name');
-    expect(flow).to.have.property('prompt_ids');
+    expect(flow).to.have.property('promptIds');
     expect(flow).to.have.property('isPublic');
   });
 }

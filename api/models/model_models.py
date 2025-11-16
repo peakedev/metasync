@@ -19,8 +19,8 @@ class ModelCreateRequest(BaseModel):
     name: str = Field(..., description="Model name", min_length=1, max_length=255)
     sdk: str = Field(..., description="SDK type (ChatCompletionsClient, AzureOpenAI, or Anthropic)")
     endpoint: str = Field(..., description="API endpoint URL", min_length=1)
-    api_type: str = Field(..., description="API type", min_length=1)
-    api_version: str = Field(..., description="API version", min_length=1)
+    apiType: str = Field(..., description="API type", min_length=1)
+    apiVersion: str = Field(..., description="API version", min_length=1)
     deployment: str = Field(..., description="Deployment name", min_length=1)
     service: Optional[str] = Field(None, description="Service name for local keyring lookup only (optional). Used to determine which keyring service to query when loading API keys from the local keychain. Not used for actual LLM API calls.", min_length=1)
     key: str = Field(..., description="API key identifier", min_length=1)
@@ -51,8 +51,8 @@ class ModelUpdateRequest(BaseModel):
     name: Optional[str] = Field(None, description="Model name", min_length=1, max_length=255)
     sdk: Optional[str] = Field(None, description="SDK type (ChatCompletionsClient, AzureOpenAI, or Anthropic)")
     endpoint: Optional[str] = Field(None, description="API endpoint URL", min_length=1)
-    api_type: Optional[str] = Field(None, description="API type", min_length=1)
-    api_version: Optional[str] = Field(None, description="API version", min_length=1)
+    apiType: Optional[str] = Field(None, description="API type", min_length=1)
+    apiVersion: Optional[str] = Field(None, description="API version", min_length=1)
     deployment: Optional[str] = Field(None, description="Deployment name", min_length=1)
     service: Optional[str] = Field(None, description="Service name for local keyring lookup only (optional). Used to determine which keyring service to query when loading API keys from the local keychain. Not used for actual LLM API calls.", min_length=1)
     key: Optional[str] = Field(None, description="API key identifier", min_length=1)
@@ -87,8 +87,8 @@ class ModelResponse(BaseModel):
     name: str = Field(..., description="Model name")
     sdk: str = Field(..., description="SDK type")
     endpoint: str = Field(..., description="API endpoint URL")
-    api_type: str = Field(..., description="API type")
-    api_version: str = Field(..., description="API version")
+    apiType: str = Field(..., description="API type")
+    apiVersion: str = Field(..., description="API version")
     deployment: str = Field(..., description="Deployment name")
     service: Optional[str] = Field(None, description="Service name for local keyring lookup only (optional). Used to determine which keyring service to query when loading API keys from the local keychain. Not used for actual LLM API calls.")
     maxToken: int = Field(..., description="Maximum tokens")
@@ -105,8 +105,8 @@ class ModelResponse(BaseModel):
                 "name": "mistral-medium-2505",
                 "sdk": "ChatCompletionsClient",
                 "endpoint": "https://myendpoint.com",
-                "api_type": "foundry",
-                "api_version": "2024-05-01-preview",
+                "apiType": "foundry",
+                "apiVersion": "2024-05-01-preview",
                 "deployment": "mistral-medium-2505",
                 "service": "azure-ai",
                 "maxToken": 100000,
@@ -139,8 +139,8 @@ class ModelCreateResponse(BaseModel):
     name: str = Field(..., description="Model name")
     sdk: str = Field(..., description="SDK type")
     endpoint: str = Field(..., description="API endpoint URL")
-    api_type: str = Field(..., description="API type")
-    api_version: str = Field(..., description="API version")
+    apiType: str = Field(..., description="API type")
+    apiVersion: str = Field(..., description="API version")
     deployment: str = Field(..., description="Deployment name")
     service: Optional[str] = Field(None, description="Service name for local keyring lookup only (optional). Used to determine which keyring service to query when loading API keys from the local keychain. Not used for actual LLM API calls.")
     key: str = Field(..., description="API key identifier (only returned once during creation)")
@@ -158,8 +158,8 @@ class ModelCreateResponse(BaseModel):
                 "name": "mistral-medium-2505",
                 "sdk": "ChatCompletionsClient",
                 "endpoint": "https://myendpoint.com",
-                "api_type": "foundry",
-                "api_version": "2024-05-01-preview",
+                "apiType": "foundry",
+                "apiVersion": "2024-05-01-preview",
                 "deployment": "mistral-medium-2505",
                 "service": "azure-ai",
                 "key": "KEY-MISTRAL-MEDIUM-2505",

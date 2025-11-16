@@ -90,6 +90,8 @@ async def create_prompt_flow(
             )
         
         return PromptFlowResponse(**created_flow)
+    except HTTPException:
+        raise
     except ValueError as e:
         logger.warning("Validation error creating prompt flow", error=str(e))
         raise HTTPException(

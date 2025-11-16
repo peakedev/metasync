@@ -25,7 +25,7 @@ class PromptFlowService:
     def __init__(self):
         self._connection_string = config.db_connection_string
         self.db_name = config.db_name
-        self.collection_name = "prompt_flows"
+        self.collection_name = "prompt-flows"
         self._cached_client = None
     
     @property
@@ -321,10 +321,10 @@ class PromptFlowService:
         """
         metadata = flow.get("_metadata", {})
         return {
-            "flow_id": str(flow["_id"]),
+            "flowId": str(flow["_id"]),
             "name": flow.get("name"),
             "prompt_ids": flow.get("prompt_ids", []),
-            "client_id": flow.get("client_id"),
+            "clientId": flow.get("client_id"),
             "isPublic": flow.get("isPublic", False),
             "created_at": metadata.get("createdAt") or "",
             "updated_at": metadata.get("updatedAt")

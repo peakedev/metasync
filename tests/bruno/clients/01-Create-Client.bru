@@ -22,7 +22,7 @@ body:json {
 }
 
 vars:post-response {
-  createdClientId: res.getBody().client_id
+  createdClientId: res.getBody().clientId
   createdApiKey: res.getBody().api_key
 }
 
@@ -39,10 +39,10 @@ tests {
     const client = res.getBody();
     expect(client.name).to.equal('Test Client');
     expect(client.enabled).to.equal(true);
-    expect(client).to.have.property('client_id');
+    expect(client).to.have.property('clientId');
     expect(client).to.have.property('api_key');
     expect(client.api_key).to.have.lengthOf(64);
-    bru.setVar("createdClientId", res.getBody().client_id);
+    bru.setVar("createdClientId", res.getBody().clientId);
       bru.setVar("createdClientApiKey", res.getBody().api_key);
   });
   
@@ -51,4 +51,5 @@ tests {
     expect(client).to.have.property('created_at');
   });
 }
+
 

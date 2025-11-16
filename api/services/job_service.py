@@ -815,7 +815,7 @@ class JobService:
             Formatted job dictionary
         """
         return {
-            "job_id": str(job["_id"]),
+            "jobId": str(job["_id"]),
             "clientId": job.get("clientId"),
             "status": job.get("status"),
             "operation": job.get("operation"),

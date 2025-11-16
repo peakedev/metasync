@@ -353,8 +353,7 @@ class WorkerService:
         config_data = worker.get("config", {})
         
         return {
-            "worker_id": str(worker["_id"]),
-            "workerId": worker.get("workerId"),
+            "workerId": str(worker["_id"]),
             "clientId": worker.get("clientId"),
             "status": worker.get("status"),
             "config": {

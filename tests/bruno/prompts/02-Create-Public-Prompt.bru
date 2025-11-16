@@ -41,10 +41,10 @@ tests {
     expect(prompt.status).to.equal('PUBLISHED');
     expect(prompt.prompt).to.equal('This is a public prompt available to all clients.');
     expect(prompt.isPublic).to.equal(true);
-    expect(prompt).to.have.property('prompt_id');
+    expect(prompt).to.have.property('promptId');
     expect(prompt).to.have.property('version');
-    expect(prompt.client_id).to.be.null;
-    bru.setVar("createdPublicPromptId", prompt.prompt_id);
+    expect(prompt.clientId).to.be.null;
+    bru.setVar("createdPublicPromptId", prompt.promptId);
   });
   
   test("Prompt has created_at timestamp", function() {

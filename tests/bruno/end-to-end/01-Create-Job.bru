@@ -12,7 +12,7 @@ post {
 
 headers {
   Content-Type: application/json
-  client_id: {{clientId}}
+  clientId: {{clientId}}
   client_api_key: {{clientApiKey}}
 }
 
@@ -52,7 +52,7 @@ tests {
     expect(job.temperature).to.equal(0.7);
     expect(job.priority).to.equal(100);
     expect(job.status).to.equal('PENDING');
-    expect(job).to.have.property('job_id');
+    expect(job).to.have.property('jobId');
     expect(job).to.have.property('clientId');
     expect(job).to.have.property('requestData');
     expect(job.requestData).to.be.an('object');
@@ -60,7 +60,7 @@ tests {
     expect(job).to.have.property('clientReference');
     expect(job.clientReference).to.be.an('object');
     expect(job.clientReference.ref).to.include('e2e-ref-');
-    bru.setVar("e2eJobId", job.job_id);
+    bru.setVar("e2eJobId", job.jobId);
     bru.setVar("e2eClientRef", job.clientReference.ref);
   });
   

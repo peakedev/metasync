@@ -12,7 +12,7 @@ get {
 
 headers {
   Content-Type: application/json
-  client_id: {{clientId}}
+  clientId: {{clientId}}
   client_api_key: {{clientApiKey}}
 }
 
@@ -23,8 +23,8 @@ tests {
   
   test("Response contains public prompt", function() {
     const prompt = res.getBody();
-    expect(prompt.prompt_id).to.equal(bru.getVar("createdPublicPromptId"));
+    expect(prompt.promptId).to.equal(bru.getVar("createdPublicPromptId"));
     expect(prompt.isPublic).to.equal(true);
-    expect(prompt.client_id).to.be.null;
+    expect(prompt.clientId).to.be.null;
   });
 }
