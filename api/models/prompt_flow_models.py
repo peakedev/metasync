@@ -1,7 +1,7 @@
 """
 Pydantic models for prompt flow management API
 """
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, List
 
 
@@ -29,8 +29,8 @@ class PromptFlowResponse(BaseModel):
     created_at: str = Field(..., description="Creation timestamp")
     updated_at: Optional[str] = Field(None, description="Last update timestamp")
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "flowId": "507f1f77bcf86cd799439011",
                 "name": "main-flow",
@@ -41,4 +41,5 @@ class PromptFlowResponse(BaseModel):
                 "updated_at": "2024-01-01T00:00:00"
             }
         }
+    )
 

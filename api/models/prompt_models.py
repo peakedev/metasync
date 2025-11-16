@@ -46,10 +46,7 @@ class PromptResponse(BaseModel):
     
     model_config = ConfigDict(
         populate_by_name=True,
-    )
-    
-    class Config:
-        json_schema_extra = {
+        json_schema_extra={
             "example": {
                 "promptId": "507f1f77bcf86cd799439011",
                 "name": "main",
@@ -65,4 +62,5 @@ class PromptResponse(BaseModel):
                 }
             }
         }
+    )
 

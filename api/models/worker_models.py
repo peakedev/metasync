@@ -1,7 +1,7 @@
 """
 Pydantic models for worker management API
 """
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 from typing import Optional, Dict, Any
 from enum import Enum
 
@@ -43,8 +43,8 @@ class WorkerResponse(BaseModel):
     created_at: str = Field(..., description="Creation timestamp")
     updated_at: Optional[str] = Field(None, description="Last update timestamp")
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "workerId": "507f1f77bcf86cd799439011",
                 "clientId": "123e4567-e89b-12d3-a456-426614174000",
@@ -61,6 +61,7 @@ class WorkerResponse(BaseModel):
                 "updated_at": "2024-01-01T00:00:00"
             }
         }
+    )
 
 
 class WorkerOverviewResponse(BaseModel):
@@ -72,8 +73,8 @@ class WorkerOverviewResponse(BaseModel):
     workers_by_client: Dict[str, Dict[str, int]] = Field(..., description="Worker counts by client ID and status")
     workers: list[WorkerResponse] = Field(..., description="List of all workers")
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "total_workers": 5,
                 "running_workers": 2,
@@ -86,6 +87,7 @@ class WorkerOverviewResponse(BaseModel):
                 "workers": []
             }
         }
+    )
 
 
 

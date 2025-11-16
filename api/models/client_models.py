@@ -26,10 +26,7 @@ class ClientResponse(BaseModel):
     
     model_config = ConfigDict(
         populate_by_name=True,
-    )
-    
-    class Config:
-        json_schema_extra = {
+        json_schema_extra={
             "example": {
                 "clientId": "123e4567-e89b-12d3-a456-426614174000",
                 "name": "Example Client",
@@ -40,6 +37,7 @@ class ClientResponse(BaseModel):
                 }
             }
         }
+    )
 
 
 class ClientCreateResponse(BaseModel):
@@ -52,10 +50,7 @@ class ClientCreateResponse(BaseModel):
     
     model_config = ConfigDict(
         populate_by_name=True,
-    )
-    
-    class Config:
-        json_schema_extra = {
+        json_schema_extra={
             "example": {
                 "clientId": "123e4567-e89b-12d3-a456-426614174000",
                 "name": "Example Client",
@@ -67,6 +62,7 @@ class ClientCreateResponse(BaseModel):
                 "api_key": "a1b2c3d4e5f6..."
             }
         }
+    )
 
 
 class ClientRotateKeyResponse(BaseModel):
@@ -74,13 +70,14 @@ class ClientRotateKeyResponse(BaseModel):
     clientId: str = Field(..., description="Unique client identifier")
     api_key: str = Field(..., description="New API key (only returned once during rotation)")
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "clientId": "123e4567-e89b-12d3-a456-426614174000",
                 "api_key": "a1b2c3d4e5f6..."
             }
         }
+    )
 
 
 

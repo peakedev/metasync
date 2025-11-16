@@ -110,8 +110,8 @@ class JobSummaryResponse(BaseModel):
     total: int = Field(0, description="Total count of jobs matching filters")
     processingMetrics: Optional[Dict[str, Any]] = Field(None, description="Aggregated processing metrics from PROCESSED and ACKNOWLEDGED jobs. Includes inputTokens, outputTokens, totalTokens, duration, and optionally inputCost, outputCost, totalCost, currency (only if all currencies match)")
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "PENDING": 5,
                 "PROCESSING": 2,
@@ -132,4 +132,5 @@ class JobSummaryResponse(BaseModel):
                 }
             }
         }
+    )
 
