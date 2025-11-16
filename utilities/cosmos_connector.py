@@ -70,6 +70,26 @@ class ClientManager:
             for client in self._clients.values():
                 client.close()
             self._clients.clear()
+    
+    def is_client_closed(self, client: MongoClient) -> bool:
+        # Check if a MongoClient is closed by examining its _topology attribute.
+        # When a client is closed, _topology is set to None.
+        try:
+            return client._topology is None
+        except (AttributeError, RuntimeError):
+            # If we can't access _topology or get an error, assume it's closed
+            return True
+    
+    def get_valid_client(self, connection_string: str, cached_client: Optional[MongoClient] = None) -> MongoClient:
+        # Get a valid MongoDB client, reusing cached client if available and not closed.
+        # If cached_client is provided and not closed, return it.
+        # Otherwise, get/create client via existing get_client() (which handles caching).
+        # This ensures we reuse the ClientManager's cache when possible.
+        if cached_client is not None and not self.is_client_closed(cached_client):
+            return cached_client
+        
+        # Get client from ClientManager cache (or create new one)
+        return self.get_client(connection_string)
 
 def get_mongo_client(connection_string: str):
     # Create a MongoDB client from connection string.

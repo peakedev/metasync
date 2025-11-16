@@ -6,7 +6,7 @@ from typing import Optional, Dict, Any, List
 
 from config import config
 from utilities.cosmos_connector import (
-    get_mongo_client,
+    ClientManager,
     db_create,
     db_read,
     db_find_one,
@@ -26,9 +26,17 @@ class JobService:
     """Service for managing jobs with validation and access control"""
     
     def __init__(self):
-        self.mongo_client = get_mongo_client(config.db_connection_string)
+        self._connection_string = config.db_connection_string
         self.db_name = config.db_name
         self.collection_name = "jobs"
+        self._cached_client = None
+    
+    @property
+    def mongo_client(self):
+        """Get a valid MongoDB client, reusing cached client if available and not closed."""
+        client_manager = ClientManager()
+        self._cached_client = client_manager.get_valid_client(self._connection_string, self._cached_client)
+        return self._cached_client
     
     def _validate_prompts_exist(self, prompt_ids: List[str]) -> None:
         """

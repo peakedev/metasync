@@ -7,7 +7,7 @@ from bson import ObjectId
 
 from config import config
 from utilities.cosmos_connector import (
-    get_mongo_client,
+    ClientManager,
     db_create,
     db_read,
     db_find_one,
@@ -26,9 +26,17 @@ class PromptService:
     """Service for managing prompts with version control and access control"""
     
     def __init__(self):
-        self.mongo_client = get_mongo_client(config.db_connection_string)
+        self._connection_string = config.db_connection_string
         self.db_name = config.db_name
         self.collection_name = "prompts"
+        self._cached_client = None
+    
+    @property
+    def mongo_client(self):
+        """Get a valid MongoDB client, reusing cached client if available and not closed."""
+        client_manager = ClientManager()
+        self._cached_client = client_manager.get_valid_client(self._connection_string, self._cached_client)
+        return self._cached_client
     
     def _get_next_version_number(self, name: str, type_name: str, client_id: Optional[str], is_public: bool) -> int:
         """
