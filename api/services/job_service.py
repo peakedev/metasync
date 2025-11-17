@@ -337,13 +337,27 @@ class JobService:
             logger.error("Error creating jobs batch", error=str(e), created_count=len(created_db_ids), client_id=client_id)
             raise RuntimeError(f"Failed to create jobs batch: {str(e)}")
     
-    def list_jobs(self, client_id: Optional[str] = None, is_admin: bool = False) -> List[Dict[str, Any]]:
+    def list_jobs(
+        self,
+        client_id: Optional[str] = None,
+        is_admin: bool = False,
+        job_id: Optional[str] = None,
+        status: Optional[JobStatus] = None,
+        operation: Optional[str] = None,
+        model: Optional[str] = None,
+        priority: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
         """
-        List jobs with access control.
+        List jobs with access control and optional filters.
         
         Args:
             client_id: Client ID (required if not admin)
             is_admin: Whether the requester is an admin
+            job_id: Optional filter by client-provided job ID
+            status: Optional filter by job status
+            operation: Optional filter by operation
+            model: Optional filter by model
+            priority: Optional filter by priority
             
         Returns:
             List of job dictionaries
@@ -357,6 +371,22 @@ class JobService:
             if not client_id:
                 raise ValueError("Client ID is required for non-admin users")
             query = {"clientId": client_id}
+        
+        # Add filters
+        if job_id is not None:
+            query["id"] = job_id
+        
+        if status is not None:
+            query["status"] = status.value
+        
+        if operation is not None:
+            query["operation"] = operation
+        
+        if model is not None:
+            query["model"] = model
+        
+        if priority is not None:
+            query["priority"] = priority
         
         jobs = db_read(
             self.mongo_client,

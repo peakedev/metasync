@@ -1,0 +1,81 @@
+meta {
+  name: List Jobs With Filters
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/jobs?status=PENDING&operation=process&model=o3-mini&priority=100
+  body: none
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  client_id: {{clientId}}
+  client_api_key: {{clientApiKey}}
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Response is an array", function() {
+    expect(res.getBody()).to.be.an('array');
+  });
+  
+  test("All returned jobs match status filter", function() {
+    const jobs = res.getBody();
+    jobs.forEach(job => {
+      expect(job.status).to.equal('PENDING');
+    });
+  });
+  
+  test("All returned jobs match operation filter", function() {
+    const jobs = res.getBody();
+    jobs.forEach(job => {
+      expect(job.operation).to.equal('process');
+    });
+  });
+  
+  test("All returned jobs match model filter", function() {
+    const jobs = res.getBody();
+    jobs.forEach(job => {
+      expect(job.model).to.equal('o3-mini');
+    });
+  });
+  
+  test("All returned jobs match priority filter", function() {
+    const jobs = res.getBody();
+    jobs.forEach(job => {
+      expect(job.priority).to.equal(100);
+    });
+  });
+  
+  test("Client only sees their own jobs", function() {
+    const jobs = res.getBody();
+    jobs.forEach(job => {
+      const expectedClientId = bru.interpolate('{{clientId}}');
+      expect(job.clientId).to.deep.equal(expectedClientId);
+    });
+  });
+  
+  test("Each job has required fields", function() {
+    const jobs = res.getBody();
+    if (jobs.length > 0) {
+      const job = jobs[0];
+      expect(job).to.have.property('jobId');
+      expect(job).to.have.property('clientId');
+      expect(job).to.have.property('status');
+      expect(job).to.have.property('operation');
+      expect(job).to.have.property('prompts');
+      expect(job).to.have.property('model');
+      expect(job).to.have.property('temperature');
+      expect(job).to.have.property('priority');
+      expect(job).to.have.property('requestData');
+      expect(job).to.have.property('_metadata');
+    }
+  });
+}
+
