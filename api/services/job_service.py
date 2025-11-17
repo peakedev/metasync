@@ -246,17 +246,6 @@ class JobService:
         self._validate_model_exists(model)
         logger.info("Model validation passed", model=model)
         
-        # Check if job_id is provided and unique (if provided)
-        if job_id:
-            existing = db_find_one(
-                self.mongo_client,
-                self.db_name,
-                self.collection_name,
-                query={"id": job_id, "clientId": client_id}
-            )
-            if existing:
-                raise ValueError(f"Job ID '{job_id}' already exists for this client")
-        
         # Create job document
         job_doc = {
             "clientId": client_id,
@@ -314,14 +303,6 @@ class JobService:
         # Validate all jobs first (all-or-nothing approach)
         logger.info("Validating batch of jobs", job_count=len(job_requests), client_id=client_id)
         
-        # Check for duplicate job IDs within the batch
-        job_ids_in_batch = {}
-        for idx, job_request in enumerate(job_requests):
-            if job_request.id:
-                if job_request.id in job_ids_in_batch:
-                    raise ValueError(f"Duplicate job ID '{job_request.id}' found in batch (jobs {job_ids_in_batch[job_request.id] + 1} and {idx + 1})")
-                job_ids_in_batch[job_request.id] = idx
-        
         # Validate each job
         for idx, job_request in enumerate(job_requests):
             try:
@@ -330,17 +311,6 @@ class JobService:
                 
                 # Validate model exists
                 self._validate_model_exists(job_request.model)
-                
-                # Check if job_id is provided and unique in database (if provided)
-                if job_request.id:
-                    existing = db_find_one(
-                        self.mongo_client,
-                        self.db_name,
-                        self.collection_name,
-                        query={"id": job_request.id, "clientId": client_id}
-                    )
-                    if existing:
-                        raise ValueError(f"Job ID '{job_request.id}' already exists for this client (job {idx + 1} in batch)")
             except ValueError as e:
                 logger.warning("Validation error in batch", error=str(e), job_index=idx, client_id=client_id)
                 raise ValueError(f"Validation failed for job {idx + 1} in batch: {str(e)}")
