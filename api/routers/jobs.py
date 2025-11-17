@@ -135,7 +135,8 @@ async def list_jobs(
     status: Optional[JobStatus] = Query(None, description="Filter by job status"),
     operation: Optional[str] = Query(None, description="Filter by operation"),
     model: Optional[str] = Query(None, description="Filter by model"),
-    priority: Optional[int] = Query(None, description="Filter by priority")
+    priority: Optional[int] = Query(None, description="Filter by priority"),
+    limit: Optional[int] = Query(None, description="Limit the number of results returned", ge=1)
 ):
     """
     List jobs with access control and optional filters.
@@ -144,6 +145,7 @@ async def list_jobs(
     - Admin can see all jobs
     - Requires either client authentication OR admin API key
     - Supports filtering by jobId, status, operation, model, and priority via query parameters
+    - Supports limiting results with the limit parameter (e.g., limit=10 returns only 10 items)
     """
     try:
         service = get_job_service()
@@ -165,7 +167,8 @@ async def list_jobs(
             status=status,
             operation=operation,
             model=model,
-            priority=priority
+            priority=priority,
+            limit=limit
         )
         
         return [JobResponse(**job) for job in jobs]

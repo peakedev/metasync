@@ -5,7 +5,7 @@ meta {
 }
 
 get {
-  url: {{baseUrl}}/jobs?status=PENDING&operation=process&model=o3-mini&priority=100
+  url: {{baseUrl}}/jobs?status=PENDING&operation=process&model=o3-mini&priority=100&limit=10
   body: none
   auth: none
 }
@@ -51,6 +51,11 @@ tests {
     jobs.forEach(job => {
       expect(job.priority).to.equal(100);
     });
+  });
+  
+  test("Results are limited to 10 items", function() {
+    const jobs = res.getBody();
+    expect(jobs.length).to.be.at.most(10);
   });
   
   test("Client only sees their own jobs", function() {

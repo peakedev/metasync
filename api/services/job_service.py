@@ -345,7 +345,8 @@ class JobService:
         status: Optional[JobStatus] = None,
         operation: Optional[str] = None,
         model: Optional[str] = None,
-        priority: Optional[int] = None
+        priority: Optional[int] = None,
+        limit: Optional[int] = None
     ) -> List[Dict[str, Any]]:
         """
         List jobs with access control and optional filters.
@@ -358,6 +359,7 @@ class JobService:
             operation: Optional filter by operation
             model: Optional filter by model
             priority: Optional filter by priority
+            limit: Optional limit on number of results returned
             
         Returns:
             List of job dictionaries
@@ -392,7 +394,8 @@ class JobService:
             self.mongo_client,
             self.db_name,
             self.collection_name,
-            query=query
+            query=query,
+            limit=limit
         )
         
         result = []
