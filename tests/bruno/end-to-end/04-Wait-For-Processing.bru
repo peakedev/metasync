@@ -67,7 +67,7 @@ tests {
     }
   });
   
-  test("Job status is PROCESSED or ERROR when complete", function() {
+  test("Job status is PROCESSED or ERROR_PROCESSING when complete", function() {
     const job = res.getBody();
     const status = job.status;
     const pollAgain = bru.getVar("e2ePollAgain");
@@ -80,7 +80,7 @@ tests {
     }
     
     // Job should be complete at this point
-    expect(['PROCESSED', 'ERROR']).to.include(status);
+    expect(['PROCESSED', 'ERROR_PROCESSING']).to.include(status);
     bru.setVar("e2eFinalJobStatus", status);
   });
 }

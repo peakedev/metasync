@@ -1,5 +1,5 @@
 meta {
-  name: Update Job Status - To Error (admin)
+  name: Update Job Status - To Error Processing (admin)
   type: http
   seq: 8
 }
@@ -17,7 +17,7 @@ headers {
 
 body:json {
   {
-    "status": "ERROR"
+    "status": "ERROR_PROCESSING"
   }
 }
 
@@ -26,8 +26,8 @@ tests {
     expect(res.getStatus()).to.equal(200);
   });
   
-  test("Job status is set to ERROR", function() {
+  test("Job status is set to ERROR_PROCESSING", function() {
     const job = res.getBody();
-    expect(job.status).to.equal('ERROR');
+    expect(job.status).to.equal('ERROR_PROCESSING');
   });
 }

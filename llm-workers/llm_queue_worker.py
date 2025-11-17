@@ -465,9 +465,9 @@ class QueueWorker:
                     elif "Extra data" in error_details:
                         error_category = "extra_data"
 
-                    # Mark item as error since JSON parsing failed (atomically from PROCESSING to ERROR)
+                    # Mark item as error since JSON parsing failed (atomically from PROCESSING to ERROR_PROCESSING)
                     error_updates = {}
-                    self.atomic_status_update(item_id, "PROCESSING", "ERROR", error_updates)
+                    self.atomic_status_update(item_id, "PROCESSING", "ERROR_PROCESSING", error_updates)
                     print(f"  ⚠️ Item {display_name} marked as error due to invalid JSON ({error_category})")
                     return True  # Continue processing other items
 
@@ -514,11 +514,11 @@ class QueueWorker:
             error_message = str(e)
             print(f"❌ Worker {self.worker_id}: Error processing item {display_name}: {error_message}")
 
-            # Update item status to error (atomically from PROCESSING to ERROR)
+            # Update item status to error (atomically from PROCESSING to ERROR_PROCESSING)
             error_updates = {}
 
             try:
-                success = self.atomic_status_update(item_id, "PROCESSING", "ERROR", error_updates)
+                success = self.atomic_status_update(item_id, "PROCESSING", "ERROR_PROCESSING", error_updates)
                 if success:
                     if self.log_level == "DEBUG":
                         print(f"⚠️ Item {display_name} marked as error")

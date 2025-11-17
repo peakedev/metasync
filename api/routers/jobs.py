@@ -194,7 +194,7 @@ async def get_jobs_summary(
     Get summary of jobs with counts by status.
     
     - Requires client authentication (client_id and client_api_key headers)
-    - Returns counts for each status (PENDING, PROCESSING, PROCESSED, ERROR, CANCELED)
+    - Returns counts for each status (PENDING, PROCESSING, PROCESSED, CONSUMED, ERROR_PROCESSING, ERROR_CONSUMING, CANCELED)
     - Supports filtering by operation, model, id, and any clientReference field
     - For clientReference filtering, use query parameters like: clientReference.randomProp=hello
     - Clients can only see their own jobs
@@ -289,7 +289,7 @@ async def update_job_status(
     Update job status (clients only).
     
     - Clients can only update status field
-    - Allowed transitions: PENDING→CANCELED, ERROR→CANCELED, CANCELED→PENDING, ERROR→PENDING
+    - Allowed transitions: PENDING→CANCELED, PROCESSED→CONSUMED, PROCESSED→ERROR_CONSUMING
     - Invalid transitions return 400 Bad Request
     - Clients can only update their own jobs
     """

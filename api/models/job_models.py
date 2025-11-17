@@ -11,8 +11,9 @@ class JobStatus(str, Enum):
     PENDING = "PENDING"
     PROCESSING = "PROCESSING"
     PROCESSED = "PROCESSED"
-    ACKNOWLEDGED = "ACKNOWLEDGED"
-    ERROR = "ERROR"
+    CONSUMED = "CONSUMED"
+    ERROR_PROCESSING = "ERROR_PROCESSING"
+    ERROR_CONSUMING = "ERROR_CONSUMING"
     CANCELED = "CANCELED"
 
 
@@ -104,11 +105,12 @@ class JobSummaryResponse(BaseModel):
     PENDING: int = Field(0, description="Count of jobs with PENDING status")
     PROCESSING: int = Field(0, description="Count of jobs with PROCESSING status")
     PROCESSED: int = Field(0, description="Count of jobs with PROCESSED status")
-    ACKNOWLEDGED: int = Field(0, description="Count of jobs with ACKNOWLEDGED status")
-    ERROR: int = Field(0, description="Count of jobs with ERROR status")
+    CONSUMED: int = Field(0, description="Count of jobs with CONSUMED status")
+    ERROR_PROCESSING: int = Field(0, description="Count of jobs with ERROR_PROCESSING status")
+    ERROR_CONSUMING: int = Field(0, description="Count of jobs with ERROR_CONSUMING status")
     CANCELED: int = Field(0, description="Count of jobs with CANCELED status")
     total: int = Field(0, description="Total count of jobs matching filters")
-    processingMetrics: Optional[Dict[str, Any]] = Field(None, description="Aggregated processing metrics from PROCESSED and ACKNOWLEDGED jobs. Includes inputTokens, outputTokens, totalTokens, duration, and optionally inputCost, outputCost, totalCost, currency (only if all currencies match)")
+    processingMetrics: Optional[Dict[str, Any]] = Field(None, description="Aggregated processing metrics from PROCESSED and CONSUMED jobs. Includes inputTokens, outputTokens, totalTokens, duration, and optionally inputCost, outputCost, totalCost, currency (only if all currencies match)")
     
     model_config = ConfigDict(
         json_schema_extra={
@@ -116,8 +118,9 @@ class JobSummaryResponse(BaseModel):
                 "PENDING": 5,
                 "PROCESSING": 2,
                 "PROCESSED": 10,
-                "ACKNOWLEDGED": 3,
-                "ERROR": 1,
+                "CONSUMED": 3,
+                "ERROR_PROCESSING": 1,
+                "ERROR_CONSUMING": 0,
                 "CANCELED": 0,
                 "total": 21,
                 "processingMetrics": {

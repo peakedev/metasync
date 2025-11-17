@@ -99,33 +99,96 @@ class JobService:
             logger.error("Error validating model", error=str(e), model_name=model_name)
             raise ValueError(f"Error validating model '{model_name}': {str(e)}")
     
-    def _validate_status_transition(self, current_status: JobStatus, new_status: JobStatus) -> bool:
+    def _validate_status_transition(self, current_status: JobStatus, new_status: JobStatus, is_admin: bool = False) -> bool:
         """
         Validate that a status transition is allowed for clients.
         
-        Allowed transitions:
+        Client allowed transitions:
         - PENDING → CANCELED
-        - ERROR → CANCELED
+        - PROCESSED → CONSUMED
+        - PROCESSED → ERROR_CONSUMING
+        
+        Admin allowed transitions (in addition to client transitions):
         - CANCELED → PENDING
-        - ERROR → PENDING
-        - PROCESSED → ACKNOWLEDGED
         
         Args:
             current_status: Current job status
             new_status: Desired new status
+            is_admin: Whether the requester is an admin
             
         Returns:
             True if transition is allowed, False otherwise
         """
-        allowed_transitions = {
+        # Client transitions
+        client_transitions = {
             JobStatus.PENDING: [JobStatus.CANCELED],
-            JobStatus.ERROR: [JobStatus.CANCELED, JobStatus.PENDING],
-            JobStatus.CANCELED: [JobStatus.PENDING],
-            JobStatus.PROCESSED: [JobStatus.ACKNOWLEDGED]
+            JobStatus.PROCESSED: [JobStatus.CONSUMED, JobStatus.ERROR_CONSUMING]
         }
         
-        allowed = allowed_transitions.get(current_status, [])
-        return new_status in allowed
+        # Admin-only transitions
+        admin_transitions = {
+            JobStatus.CANCELED: [JobStatus.PENDING]
+        }
+        
+        # Check client transitions first
+        allowed = client_transitions.get(current_status, [])
+        if new_status in allowed:
+            return True
+        
+        # Check admin transitions if admin
+        if is_admin:
+            admin_allowed = admin_transitions.get(current_status, [])
+            if new_status in admin_allowed:
+                return True
+        
+        return False
+    
+    def _validate_worker_status_transition(self, current_status: JobStatus, new_status: JobStatus, is_admin: bool = False) -> bool:
+        """
+        Validate that a status transition is allowed for workers/admin.
+        
+        Allowed transitions:
+        - PENDING → PROCESSING (workers)
+        - PENDING → CANCELED (admin)
+        - PROCESSING → PROCESSED (workers)
+        - PROCESSING → ERROR_PROCESSING (workers)
+        - CANCELED → PENDING (admin only)
+        
+        Note: PROCESSED → CONSUMED and PROCESSED → ERROR_CONSUMING are client transitions,
+        not worker transitions. Workers don't know what the client will do with the job.
+        
+        Args:
+            current_status: Current job status
+            new_status: Desired new status
+            is_admin: Whether the requester is an admin
+            
+        Returns:
+            True if transition is allowed, False otherwise
+        """
+        # Worker transitions
+        worker_transitions = {
+            JobStatus.PENDING: [JobStatus.PROCESSING],
+            JobStatus.PROCESSING: [JobStatus.PROCESSED, JobStatus.ERROR_PROCESSING]
+        }
+        
+        # Admin-only transitions
+        admin_transitions = {
+            JobStatus.PENDING: [JobStatus.CANCELED],
+            JobStatus.CANCELED: [JobStatus.PENDING]
+        }
+        
+        # Check worker transitions first
+        allowed = worker_transitions.get(current_status, [])
+        if new_status in allowed:
+            return True
+        
+        # Check admin transitions if admin
+        if is_admin:
+            admin_allowed = admin_transitions.get(current_status, [])
+            if new_status in admin_allowed:
+                return True
+        
+        return False
     
     def _check_job_access(self, job: Dict[str, Any], client_id: Optional[str], is_admin: bool = False) -> bool:
         """
@@ -490,8 +553,8 @@ class JobService:
             logger.error("Invalid current status", job_id=job_id, status=current_status_str)
             raise ValueError(f"Invalid current job status: {current_status_str}")
         
-        # Validate transition
-        if not self._validate_status_transition(current_status, new_status):
+        # Validate transition (clients only, so is_admin=False)
+        if not self._validate_status_transition(current_status, new_status, is_admin=False):
             raise ValueError(f"Invalid status transition from {current_status.value} to {new_status.value}")
         
         # Update status
@@ -557,6 +620,19 @@ class JobService:
         if not is_admin:
             if not client_id or not self._check_job_access(job, client_id, is_admin=False):
                 raise ValueError("Access denied: job not found or insufficient permissions")
+        
+        # Validate status transition if status is being updated
+        if status is not None:
+            current_status_str = job.get("status")
+            try:
+                current_status = JobStatus(current_status_str)
+            except ValueError:
+                logger.error("Invalid current status", job_id=job_id, status=current_status_str)
+                raise ValueError(f"Invalid current job status: {current_status_str}")
+            
+            # Validate worker/admin transition
+            if not self._validate_worker_status_transition(current_status, status, is_admin=is_admin):
+                raise ValueError(f"Invalid status transition from {current_status.value} to {status.value}")
         
         # Build update document
         updates = {}
@@ -733,8 +809,9 @@ class JobService:
                 JobStatus.PENDING.value: 0,
                 JobStatus.PROCESSING.value: 0,
                 JobStatus.PROCESSED.value: 0,
-                JobStatus.ACKNOWLEDGED.value: 0,
-                JobStatus.ERROR.value: 0,
+                JobStatus.CONSUMED.value: 0,
+                JobStatus.ERROR_PROCESSING.value: 0,
+                JobStatus.ERROR_CONSUMING.value: 0,
                 JobStatus.CANCELED.value: 0,
                 "total": 0
             }
@@ -747,10 +824,10 @@ class JobService:
                     summary[status] = count
                     summary["total"] += count
             
-            # Aggregate processingMetrics from PROCESSED and ACKNOWLEDGED jobs
+            # Aggregate processingMetrics from PROCESSED and CONSUMED jobs
             metrics_query = {
                 **query,
-                "status": {"$in": [JobStatus.PROCESSED.value, JobStatus.ACKNOWLEDGED.value]},
+                "status": {"$in": [JobStatus.PROCESSED.value, JobStatus.CONSUMED.value]},
                 "processingMetrics": {"$exists": True, "$ne": None}
             }
             
