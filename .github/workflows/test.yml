@@ -84,14 +84,7 @@ jobs:
           docker run -d \
             --name metasync \
             --network host \
-            -e DB_NAME=metasync-test \
-            -e DB_CONNECTION_STRING=mongodb://localhost:27017 \
-            -e API_KEY_PEPPER=SiNEXQtcaBWjjyzlt6PFl57ugpRJlBii5yqf5GTrzQtZO2ubHyCQd9NxVlKCZvrV \
-            -e ADMIN_API_KEY=mesecret \
-            -e DOCS_SECRET=mesecret \
-            -e POLL_INTERVAL=10 \
-            -e MAX_ITEMS_PER_BATCH=50 \
-            -e NUM_LLM_WORKERS=10 \
+            --env-file tests/pipeline-run.env \
             metasync:test
       
       - name: Wait for metasync to be healthy
