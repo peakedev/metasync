@@ -12,7 +12,9 @@ logger = get_logger("api.middleware.client_auth")
 
 def verify_client_auth(
     client_id: Annotated[Optional[str], Header(alias="client_id")] = None,
-    client_api_key: Annotated[Optional[str], Header(alias="client_api_key")] = None
+    client_api_key: Annotated[
+        Optional[str], Header(alias="client_api_key")
+    ] = None
 ) -> str:
     """
     FastAPI dependency to verify client API key from headers.
@@ -35,7 +37,9 @@ def verify_client_auth(
         )
     
     if client_api_key is None:
-        logger.warning("Client API key missing from request", client_id=client_id)
+        logger.warning(
+            "Client API key missing from request", client_id=client_id
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Client API key is required"
@@ -67,6 +71,8 @@ def verify_client_auth(
             detail="Invalid client credentials"
         )
     
-    logger.info("Client authenticated successfully", client_id=client_id)
+    logger.info(
+        "Client authenticated successfully", client_id=client_id
+    )
     return client_id
 

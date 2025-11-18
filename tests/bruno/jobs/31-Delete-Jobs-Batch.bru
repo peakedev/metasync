@@ -1,0 +1,39 @@
+meta {
+  name: Delete Jobs Batch
+  type: http
+  seq: 31
+}
+
+delete {
+  url: {{baseUrl}}/jobs/batch
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  client_id: {{clientId}}
+  client_api_key: {{clientApiKey}}
+}
+
+body:json {
+  {
+    "jobIds": [
+      "{{createdBatchJobId1}}",
+      "{{createdBatchJobId2}}",
+      "{{createdBatchJobId3}}"
+    ]
+  }
+}
+
+tests {
+  test("Status code is 204", function() {
+    expect(res.getStatus()).to.equal(204);
+  });
+  
+  test("Response body is empty", function() {
+    const body = res.getBody();
+    expect(body === null || body === undefined || body === '').to.be.true;
+  });
+}
+

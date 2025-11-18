@@ -1,23 +1,40 @@
 """
 Pydantic models for model management API
 """
-from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
+from pydantic import (
+    BaseModel,
+    Field,
+    field_validator,
+    model_validator,
+    ConfigDict
+)
 from typing import Optional, Dict, Any
 from datetime import datetime
 
 
 class CostModel(BaseModel):
     """Cost structure for model pricing"""
-    tokens: int = Field(..., description="Number of tokens for cost calculation", gt=0)
-    currency: str = Field(..., description="Currency code (e.g., USD)", min_length=1)
+    tokens: int = Field(
+        ..., description="Number of tokens for cost calculation", gt=0
+    )
+    currency: str = Field(
+        ..., description="Currency code (e.g., USD)", min_length=1
+    )
     input: float = Field(..., description="Cost per input token", ge=0)
     output: float = Field(..., description="Cost per output token", ge=0)
 
 
 class ModelCreateRequest(BaseModel):
     """Request model for creating a new model"""
-    name: str = Field(..., description="Model name", min_length=1, max_length=255)
-    sdk: str = Field(..., description="SDK type (ChatCompletionsClient, AzureOpenAI, or Anthropic)")
+    name: str = Field(
+        ..., description="Model name", min_length=1, max_length=255
+    )
+    sdk: str = Field(
+        ...,
+        description=(
+            "SDK type (ChatCompletionsClient, AzureOpenAI, or Anthropic)"
+        )
+    )
     endpoint: str = Field(..., description="API endpoint URL", min_length=1)
     apiType: str = Field(..., description="API type", min_length=1)
     apiVersion: str = Field(..., description="API version", min_length=1)
@@ -25,15 +42,19 @@ class ModelCreateRequest(BaseModel):
     service: Optional[str] = Field(None, description="Service name for local keyring lookup only (optional). Used to determine which keyring service to query when loading API keys from the local keychain. Not used for actual LLM API calls.", min_length=1)
     key: str = Field(..., description="API key identifier", min_length=1)
     maxToken: int = Field(..., description="Maximum tokens", gt=0)
-    minTemperature: float = Field(..., description="Minimum temperature", ge=0, le=2)
-    maxTemperature: float = Field(..., description="Maximum temperature", ge=0, le=2)
+    minTemperature: float = Field(
+        ..., description="Minimum temperature", ge=0, le=2
+    )
+    maxTemperature: float = Field(
+        ..., description="Maximum temperature", ge=0, le=2
+    )
     cost: CostModel = Field(..., description="Cost structure")
     
     @field_validator('sdk')
     @classmethod
     def validate_sdk(cls, v: str) -> str:
         """Validate SDK is one of the supported types"""
-        allowed_sdks = ["ChatCompletionsClient", "AzureOpenAI", "Anthropic"]
+        allowed_sdks = ["ChatCompletionsClient", "AzureOpenAI", "Anthropic", "test"]
         if v not in allowed_sdks:
             raise ValueError(f"SDK must be one of: {', '.join(allowed_sdks)}")
         return v
@@ -67,7 +88,7 @@ class ModelUpdateRequest(BaseModel):
         """Validate SDK is one of the supported types"""
         if v is None:
             return v
-        allowed_sdks = ["ChatCompletionsClient", "AzureOpenAI", "Anthropic"]
+        allowed_sdks = ["ChatCompletionsClient", "AzureOpenAI", "Anthropic", "test"]
         if v not in allowed_sdks:
             raise ValueError(f"SDK must be one of: {', '.join(allowed_sdks)}")
         return v

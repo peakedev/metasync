@@ -1,0 +1,33 @@
+[
+{
+  "_id": {
+    "$oid": "691bacaaa31e18523bb3008c"
+  },
+  "name": "gptest",
+  "sdk": "test",
+  "endpoint": "https://myendpoint.com",
+  "apiType": "jeeee",
+  "apiVersion": "2025-01-01-preview",
+  "deployment": "gptest",
+  "service": "azure-ai",
+  "key": "KEY-GPTEST",
+  "maxToken": 100000,
+  "minTemperature": 0,
+  "maxTemperature": 1,
+  "cost": {
+    "tokens": 1000,
+    "currency": "USD",
+    "input": 1,
+    "output": 1
+  },
+  "_metadata": {
+    "isDeleted": false,
+    "createdAt": "2025-11-15T23:29:25.829074",
+    "deletedAt": null,
+    "updatedAt": "2025-11-16T18:33:20.173120",
+    "archivedAt": null,
+    "createdBy": null,
+    "updatedBy": null,
+    "deletedBy": null
+  }
+}]

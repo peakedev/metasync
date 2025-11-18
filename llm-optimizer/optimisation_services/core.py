@@ -39,8 +39,10 @@ def generate_core_result(
         raise TypeError("prompt must be a string")
 
     try:
-        content_str = (json.dumps(content, ensure_ascii=False, indent=2)
-                      if not isinstance(content, str) else content)
+        content_str = (
+            json.dumps(content, ensure_ascii=False, indent=2)
+            if not isinstance(content, str) else content
+        )
 
         # Initialize messages based on SDK type
         if mdl['sdk'] == "Anthropic":
@@ -56,8 +58,10 @@ def generate_core_result(
         # Add annexes if provided
         if annexes:
             for key, value in annexes.items():
-                annex_content = (f"Annexes - {key}:\n"
-                               f"{json.dumps(value, ensure_ascii=False, indent=2)}")
+                annex_content = (
+                    f"Annexes - {key}:\n"
+                    f"{json.dumps(value, ensure_ascii=False, indent=2)}"
+                )
                 messages.append({"role": "user", "content": annex_content})
 
         # Generate result with appropriate parameters
@@ -67,7 +71,9 @@ def generate_core_result(
             messages=messages,
             temperature=temperature,
             max_tokens=max_tokens,
-            system_prompt=system_prompt if mdl['sdk'] == "Anthropic" else None
+            system_prompt=(
+                system_prompt if mdl['sdk'] == "Anthropic" else None
+            )
         )
 
     except json.JSONDecodeError as e:

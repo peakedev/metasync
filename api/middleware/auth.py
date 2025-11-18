@@ -12,7 +12,9 @@ logger = get_logger("api.middleware.auth")
 
 
 def verify_admin_api_key(
-    admin_api_key: Annotated[Optional[str], Header(alias="admin_api_key")] = None
+    admin_api_key: Annotated[
+        Optional[str], Header(alias="admin_api_key")
+    ] = None
 ) -> str:
     """
     FastAPI dependency to verify admin API key from header.

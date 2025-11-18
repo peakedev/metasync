@@ -10,13 +10,21 @@ from utilities.cosmos_connector import get_mongo_client, db_read
 
 
 def _model_name_to_attr_name(name: str) -> str:
-    attr_name = name.lower().replace("-", "_").replace(".", "_").replace(" ", "_")
-    while "__" in attr_name: attr_name = attr_name.replace("__", "_")
+    """Convert model name to attribute name."""
+    attr_name = (
+        name.lower().replace("-", "_").replace(".", "_").replace(" ", "_")
+    )
+    while "__" in attr_name:
+        attr_name = attr_name.replace("__", "_")
     return f"{attr_name}_key"
 
 
 class ConfigFactory:
-    # Singleton configuration factory that provides centralized access to all environment variables.
+    """
+    Singleton configuration factory.
+    
+    Provides centralized access to all environment variables.
+    """
     _instance: Optional['ConfigFactory'] = None
     
     def __new__(cls):
@@ -25,14 +33,18 @@ class ConfigFactory:
         return cls._instance
     
     def __init__(self):
-        # Always reload configuration from environment variables when available
-        # Fallback to hardcoded default + local keychain for secure development
-        # Add password to keychain with security add-generic-password -a "secret name" -s "service name" -w "secret value" 
+        # Always reload configuration from environment variables when
+        # available. Fallback to hardcoded default + local keychain for
+        # secure development.
+        # Add password to keychain with security add-generic-password
+        # -a "secret name" -s "service name" -w "secret value" 
         
         # Database configuration
         self.db_name = os.getenv("DB_NAME", "metasync-dev")
         try:
-            self.db_connection_string = get_secret("DB_CONNECTION_STRING", "mongodb", self.db_name)
+            self.db_connection_string = get_secret(
+                "DB_CONNECTION_STRING", "mongodb", self.db_name
+            )
         except ValueError:
             raise ValueError("DB Connection String is required")
         
@@ -49,23 +61,34 @@ class ConfigFactory:
                 if name and key and service:
                     attr_name = _model_name_to_attr_name(name)
                     env_var_name = attr_name.upper()
-                    setattr(self, attr_name, get_secret(env_var_name, service, name))
+                    setattr(
+                        self,
+                        attr_name,
+                        get_secret(env_var_name, service, name)
+                    )
         except Exception as e:
-            # Log error but don't fail initialization if models can't be loaded
+            # Log error but don't fail initialization if models can't be
+            # loaded
             print(f"Warning: Could not load model keys from database: {e}")
         
         # Client Key Pepper
-        self.api_key_pepper = get_secret("API_KEY_PEPPER", "metasync", "api_key_pepper")
+        self.api_key_pepper = get_secret(
+            "API_KEY_PEPPER", "metasync", "api_key_pepper"
+        )
         
         # Admin API Key
-        self.admin_api_key = get_secret("ADMIN_API_KEY", "metasync", "admin_api_key")
+        self.admin_api_key = get_secret(
+            "ADMIN_API_KEY", "metasync", "admin_api_key"
+        )
         
         # Documentation authentication from container app secret
         self.docs_user = os.getenv("DOCS_USER", "user")
         try:
             self.docs_secret = get_secret("DOCS_SECRET", "docs", "password")
         except ValueError:
-            raise ValueError("DOCS_SECRET environment variable is required for production")
+            raise ValueError(
+                "DOCS_SECRET environment variable is required for production"
+            )
         
         # # Worker configuration
         self.poll_interval = int(os.getenv("POLL_INTERVAL", "10"))

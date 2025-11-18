@@ -22,9 +22,15 @@ router = APIRouter()
 
 def optional_client_auth(
     client_id: Annotated[Optional[str], Header(alias="client_id")] = None,
-    client_api_key: Annotated[Optional[str], Header(alias="client_api_key")] = None
+    client_api_key: Annotated[
+        Optional[str], Header(alias="client_api_key")
+    ] = None
 ) -> Optional[str]:
-    """Optional client authentication - returns client_id if valid, None otherwise"""
+    """
+    Optional client authentication.
+    
+    Returns client_id if valid, None otherwise.
+    """
     if client_id is None or client_api_key is None:
         return None
     try:
@@ -34,9 +40,15 @@ def optional_client_auth(
 
 
 def optional_admin_auth(
-    admin_api_key: Annotated[Optional[str], Header(alias="admin_api_key")] = None
+    admin_api_key: Annotated[
+        Optional[str], Header(alias="admin_api_key")
+    ] = None
 ) -> Optional[str]:
-    """Optional admin authentication - returns admin_api_key if valid, None otherwise"""
+    """
+    Optional admin authentication.
+    
+    Returns admin_api_key if valid, None otherwise.
+    """
     if admin_api_key is None:
         return None
     try:
@@ -45,7 +57,11 @@ def optional_admin_auth(
         return None
 
 
-@router.post("", response_model=PromptFlowResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=PromptFlowResponse,
+    status_code=status.HTTP_201_CREATED
+)
 async def create_prompt_flow(
     request: PromptFlowCreateRequest,
     client_id: Optional[str] = Depends(optional_client_auth),
@@ -54,8 +70,10 @@ async def create_prompt_flow(
     """
     Create a new prompt flow.
     
-    - Public flows (isPublic: true) can only be created with Admin API Key
-    - Private flows (isPublic: false) can be created by any authenticated client
+    - Public flows (isPublic: true) can only be created with Admin
+      API Key
+    - Private flows (isPublic: false) can be created by any
+      authenticated client
     - Returns the created prompt flow data
     """
     try:
@@ -66,7 +84,10 @@ async def create_prompt_flow(
             if admin_api_key is None:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Admin API key is required to create public prompt flows"
+                    detail=(
+                        "Admin API key is required to create public prompt "
+                        "flows"
+                    )
                 )
             # For public flows, client_id is None
             created_flow = service.create_prompt_flow(
@@ -80,7 +101,10 @@ async def create_prompt_flow(
             if client_id is None:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Client authentication is required to create private prompt flows"
+                    detail=(
+                        "Client authentication is required to create private "
+                        "prompt flows"
+                    )
                 )
             created_flow = service.create_prompt_flow(
                 name=request.name,
@@ -143,7 +167,9 @@ async def list_prompt_flows(
             detail=str(e)
         )
     except Exception as e:
-        logger.error("Error listing prompt flows", error=str(e), exc_info=True)
+        logger.error(
+            "Error listing prompt flows", error=str(e), exc_info=True
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to list prompt flows: {str(e)}"
@@ -176,7 +202,9 @@ async def get_prompt_flow(
                 detail="Client authentication or admin API key is required"
             )
         
-        flow = service.get_prompt_flow_by_id(flow_id, client_id=client_id, is_admin=is_admin)
+        flow = service.get_prompt_flow_by_id(
+            flow_id, client_id=client_id, is_admin=is_admin
+        )
         
         return PromptFlowResponse(**flow)
     except HTTPException:
@@ -223,7 +251,10 @@ async def update_prompt_flow(
             if admin_api_key is None:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Admin API key is required to update public prompt flows"
+                    detail=(
+                        "Admin API key is required to update public prompt "
+                        "flows"
+                    )
                 )
             # For public flows, pass None as client_id
             updated_flow = service.update_prompt_flow(
@@ -239,7 +270,10 @@ async def update_prompt_flow(
             if client_id is None:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Client authentication is required to update private prompt flows"
+                    detail=(
+                        "Client authentication is required to update private "
+                        "prompt flows"
+                    )
                 )
             updated_flow = service.update_prompt_flow(
                 flow_id=flow_id,
@@ -254,7 +288,11 @@ async def update_prompt_flow(
     except HTTPException:
         raise
     except ValueError as e:
-        logger.warning("Validation error updating prompt flow", error=str(e), flow_id=flow_id)
+        logger.warning(
+            "Validation error updating prompt flow",
+            error=str(e),
+            flow_id=flow_id
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
@@ -293,7 +331,10 @@ async def delete_prompt_flow(
             if admin_api_key is None:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Admin API key is required to delete public prompt flows"
+                    detail=(
+                        "Admin API key is required to delete public prompt "
+                        "flows"
+                    )
                 )
             # For public flows, pass None as client_id
             service.delete_prompt_flow(flow_id, client_id=None, is_admin=True)
@@ -302,7 +343,10 @@ async def delete_prompt_flow(
             if client_id is None:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Client authentication is required to delete private prompt flows"
+                    detail=(
+                        "Client authentication is required to delete private "
+                        "prompt flows"
+                    )
                 )
             service.delete_prompt_flow(flow_id, client_id=client_id, is_admin=False)
         
@@ -310,7 +354,9 @@ async def delete_prompt_flow(
     except HTTPException:
         raise
     except ValueError as e:
-        logger.warning("Error deleting prompt flow", error=str(e), flow_id=flow_id)
+        logger.warning(
+            "Error deleting prompt flow", error=str(e), flow_id=flow_id
+        )
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e)

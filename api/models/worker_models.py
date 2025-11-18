@@ -15,16 +15,36 @@ class WorkerStatus(str, Enum):
 
 class WorkerConfig(BaseModel):
     """Configuration for a worker"""
-    pollInterval: int = Field(..., description="Polling interval in seconds", ge=1, le=3600)
-    maxItemsPerBatch: int = Field(..., description="Maximum items to process per batch", ge=1, le=1000)
-    modelFilter: Optional[str] = Field(None, description="Optional filter for model name (e.g., 'o3-mini')")
-    operationFilter: Optional[str] = Field(None, description="Optional filter for operation type (e.g., 'process')")
-    clientReferenceFilters: Optional[Dict[str, str]] = Field(None, description="Optional filters for clientReference fields (exact match)")
+    pollInterval: int = Field(
+        ..., description="Polling interval in seconds", ge=1, le=3600
+    )
+    maxItemsPerBatch: int = Field(
+        ...,
+        description="Maximum items to process per batch",
+        ge=1,
+        le=1000
+    )
+    modelFilter: Optional[str] = Field(
+        None, description="Optional filter for model name (e.g., 'o3-mini')"
+    )
+    operationFilter: Optional[str] = Field(
+        None,
+        description="Optional filter for operation type (e.g., 'process')"
+    )
+    clientReferenceFilters: Optional[Dict[str, str]] = Field(
+        None,
+        description="Optional filters for clientReference fields (exact match)"
+    )
 
 
 class WorkerCreateRequest(BaseModel):
     """Request model for creating a new worker"""
-    workerId: str = Field(..., description="Unique worker identifier", min_length=1, max_length=100)
+    workerId: str = Field(
+        ...,
+        description="Unique worker identifier",
+        min_length=1,
+        max_length=100
+    )
     config: WorkerConfig = Field(..., description="Worker configuration")
 
 
@@ -39,8 +59,17 @@ class WorkerResponse(BaseModel):
     clientId: str = Field(..., description="Client ID that owns the worker")
     status: WorkerStatus = Field(..., description="Worker status")
     config: WorkerConfig = Field(..., description="Worker configuration")
-    threadInfo: Optional[Dict[str, Any]] = Field(None, description="Thread information (if running)")
-    metadata: Dict[str, Any] = Field(..., alias="_metadata", description="Metadata object with createdAt, updatedAt, and other relevant metadata")
+    threadInfo: Optional[Dict[str, Any]] = Field(
+        None, description="Thread information (if running)"
+    )
+    metadata: Dict[str, Any] = Field(
+        ...,
+        alias="_metadata",
+        description=(
+            "Metadata object with createdAt, updatedAt, and other relevant "
+            "metadata"
+        )
+    )
     
     model_config = ConfigDict(
         populate_by_name=True,
@@ -72,7 +101,9 @@ class WorkerOverviewResponse(BaseModel):
     running_workers: int = Field(..., description="Number of running workers")
     stopped_workers: int = Field(..., description="Number of stopped workers")
     error_workers: int = Field(..., description="Number of workers in error state")
-    workers_by_client: Dict[str, Dict[str, int]] = Field(..., description="Worker counts by client ID and status")
+    workers_by_client: Dict[str, Dict[str, int]] = Field(
+        ..., description="Worker counts by client ID and status"
+    )
     workers: list[WorkerResponse] = Field(..., description="List of all workers")
     
     model_config = ConfigDict(

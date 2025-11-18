@@ -22,7 +22,7 @@ body:json {
     "config": {
       "pollInterval": 5,
       "maxItemsPerBatch": 10,
-      "modelFilter": "o3-mini",
+      "modelFilter": "gptest",
       "operationFilter": "process",
       "clientReferenceFilters": {
         "ref": "{{e2eClientRef}}"
@@ -63,4 +63,3 @@ tests {
     expect(worker._metadata).to.have.property('createdAt');
   });
 }
-

@@ -1,0 +1,191 @@
+name: Test Pipeline
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - '**'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      mongo:
+        image: mongo:7.0
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.runCommand({ ping: 1 })'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      
+      - name: Install MongoDB tools
+        run: |
+          wget -qO - https://www.mongodb.org/static/pgp/server-7.0.asc | sudo apt-key add -
+          echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
+          sudo apt-get update
+          sudo apt-get install -y mongodb-mongosh mongodb-database-tools
+      
+      - name: Wait for MongoDB to be ready
+        run: |
+          echo "Waiting for MongoDB to be ready..."
+          for i in {1..30}; do
+            if mongosh --host localhost --port 27017 --eval "db.runCommand({ ping: 1 })" > /dev/null 2>&1; then
+              echo "MongoDB is ready!"
+              break
+            fi
+            echo "Waiting... ($i/30)"
+            sleep 2
+          done
+      
+      - name: Initialize MongoDB with test data
+        run: |
+          # Import all test data files
+          for file in tests/data/*.json; do
+            collection=$(basename "$file" .json)
+            echo "Importing $collection from $file..."
+            mongoimport --host localhost --port 27017 --db metasync-test --collection "$collection" --file "$file" --jsonArray
+          done
+          
+          # Create index on priority field in jobs collection
+          echo "Creating index on jobs.priority..."
+          mongosh --host localhost --port 27017 metasync-test --eval 'db.jobs.createIndex({ priority: -1 })'
+          
+          # Verify data was loaded
+          echo "Verifying data load..."
+          mongosh --host localhost --port 27017 metasync-test --eval 'db.getCollectionNames().forEach(function(col) { print(col + ": " + db[col].countDocuments()); })'
+      
+      - name: Build Docker image
+        run: |
+          docker build -t metasync:test .
+      
+      - name: Start metasync container
+        run: |
+          docker run -d \
+            --name metasync \
+            --network host \
+            -e DB_NAME=metasync-test \
+            -e DB_CONNECTION_STRING=mongodb://localhost:27017 \
+            -e API_KEY_PEPPER=SiNEXQtcaBWjjyzlt6PFl57ugpRJlBii5yqf5GTrzQtZO2ubHyCQd9NxVlKCZvrV \
+            -e ADMIN_API_KEY=mesecret \
+            -e DOCS_SECRET=mesecret \
+            -e POLL_INTERVAL=10 \
+            -e MAX_ITEMS_PER_BATCH=50 \
+            -e NUM_LLM_WORKERS=10 \
+            metasync:test
+      
+      - name: Wait for metasync to be healthy
+        run: |
+          echo "Waiting for metasync to be healthy..."
+          for i in {1..60}; do
+            if curl -f http://localhost:8001/health > /dev/null 2>&1; then
+              echo "Metasync is healthy!"
+              curl http://localhost:8001/health
+              break
+            fi
+            echo "Waiting... ($i/60)"
+            sleep 2
+          done
+          
+          # Final check
+          if ! curl -f http://localhost:8001/health > /dev/null 2>&1; then
+            echo "Metasync failed to become healthy"
+            echo "Container logs:"
+            docker logs metasync
+            exit 1
+          fi
+      
+      - name: Set up Node.js for Bruno
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install Bruno CLI
+        run: |
+          npm install -g @usebruno/cli
+      
+      - name: Run health tests
+        run: |
+          echo "Running health tests..."
+          bru run tests/bruno/health --env local --reporter-junit results-health.xml
+        continue-on-error: true
+      
+      - name: Run client tests
+        run: |
+          echo "Running client tests..."
+          bru run tests/bruno/clients --env local --reporter-junit results-clients.xml
+        continue-on-error: true
+      
+      - name: Run model tests
+        run: |
+          echo "Running model tests..."
+          bru run tests/bruno/models --env local --reporter-junit results-models.xml
+        continue-on-error: true
+      
+      - name: Run prompt tests
+        run: |
+          echo "Running prompt tests..."
+          bru run tests/bruno/prompts --env local --reporter-junit results-prompts.xml
+        continue-on-error: true
+      
+      - name: Run prompt-flow tests
+        run: |
+          echo "Running prompt-flow tests..."
+          bru run tests/bruno/prompt-flows --env local --reporter-junit results-prompt-flows.xml
+        continue-on-error: true
+      
+      - name: Run worker tests
+        run: |
+          echo "Running worker tests..."
+          bru run tests/bruno/workers --env local --reporter-junit results-workers.xml
+        continue-on-error: true
+      
+      - name: Run job tests
+        run: |
+          echo "Running job tests..."
+          bru run tests/bruno/jobs --env local --reporter-junit results-jobs.xml
+        continue-on-error: true
+      
+      - name: Run end-to-end tests
+        run: |
+          echo "Running end-to-end tests..."
+          bru run tests/bruno/end-to-end --env local --reporter-junit results-e2e.xml
+        continue-on-error: true
+      
+      - name: Show container logs on failure
+        if: failure()
+        run: |
+          echo "=== Metasync Container Logs ==="
+          docker logs metasync
+          echo ""
+          echo "=== MongoDB Connection Test ==="
+          mongosh --host localhost --port 27017 metasync-test --eval 'db.getCollectionNames()'
+      
+      - name: Publish test results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          files: |
+            results-*.xml
+          check_name: Test Results
+      
+      - name: Cleanup
+        if: always()
+        run: |
+          docker stop metasync || true
+          docker rm metasync || true
+

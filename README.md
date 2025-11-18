@@ -18,19 +18,27 @@ The Metasync Docker image is available on Docker Hub:
 
 In time, we want to add a layer of abstraction to allow orchestration of many LLM tasks, automated handling of model rate limiters, built-in multi-provider failover routing, evaluation pipelines, and long-running background jobs.
 
-## 1.0.0 To Dos
+## 0.2.0 To Dos
+- Ensure running workers restart on pod deploy/restart
+- Multi worker create/start/stop/delete
+- Multi job patch/delete
+- Self-contained testing with Mongo Container and DB Seed (/test/mongo)
+- Remove tests/shell
+- Add auto bruno regression when building
 
+# 0.3.0 To Dos
 - Describe usage better
 - Describe how to extend
 - Properly modularise LLM client config to let users add LLM clients easily
 - Add a sync API for testing and quick access to models
-- Self-contained testing with Mongo Container and DB Seed (/test/mongo)
-- Remove tests/shell
-- Add auto bruno regression when building
+
+# 1.0.0
 - Full stable API with more edge-case before graduating to 1.0
 - Address statelessness & challenge with multithreaded workers defined within the replicas
 - Ensure the llm-optimiser functionalities are fully API enabled and working in the framework
 - Chain or Embed the evaluation step (optionally) separately from the llm-optimizer but still compatible with the optimization routines
+- Control on rate limiting
+- Control on cost & cost estimates
 
 ## Project Structure
 

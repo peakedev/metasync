@@ -9,7 +9,9 @@ def generate_prompt(
     feedback: Optional[str] = None
 ) -> str:
     """
-    Generates an optimized prompt based on previous prompt and meta-prompt template.
+    Generates an optimized prompt.
+    
+    Based on previous prompt and meta-prompt template.
 
     Args:
         client: The API client instance for model interaction
@@ -26,11 +28,18 @@ def generate_prompt(
         TypeError: If required arguments are of wrong type
     """
     # Validate inputs
-    if not isinstance(meta_prompt, str) or not isinstance(previous_prompt, str):
-        raise TypeError("meta_prompt and previous_prompt must be strings")
+    if not isinstance(meta_prompt, str) or not isinstance(
+        previous_prompt, str
+    ):
+        raise TypeError(
+            "meta_prompt and previous_prompt must be strings"
+        )
 
     if "{prompt}" not in meta_prompt or "{feedback}" not in meta_prompt:
-        raise ValueError("meta_prompt must contain {prompt} and {feedback} placeholders")
+        raise ValueError(
+            "meta_prompt must contain {prompt} and {feedback} "
+            "placeholders"
+        )
 
     # Ensure feedback is either string or None
     feedback_str = str(feedback) if feedback is not None else ""

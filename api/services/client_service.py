@@ -36,9 +36,15 @@ class ClientService:
     
     @property
     def mongo_client(self):
-        """Get a valid MongoDB client, reusing cached client if available and not closed."""
+        """
+        Get a valid MongoDB client.
+        
+        Reusing cached client if available and not closed.
+        """
         client_manager = ClientManager()
-        self._cached_client = client_manager.get_valid_client(self._connection_string, self._cached_client)
+        self._cached_client = client_manager.get_valid_client(
+            self._connection_string, self._cached_client
+        )
         return self._cached_client
     
     @staticmethod
@@ -77,7 +83,9 @@ class ClientService:
         combined = salt + api_key + pepper
         return self.hasher.hash(combined)
     
-    def verify_api_key(self, provided_key: str, salt: str, stored_hash: str, pepper: str) -> bool:
+    def verify_api_key(
+        self, provided_key: str, salt: str, stored_hash: str, pepper: str
+    ) -> bool:
         """
         Verify an API key against stored hash.
         
@@ -138,7 +146,11 @@ class ClientService:
         )
         
         if not db_id:
-            business_logger.log_error("client_service", "create_client", "Failed to create client in database")
+            business_logger.log_error(
+                "client_service",
+                "create_client",
+                "Failed to create client in database"
+            )
             raise RuntimeError("Failed to create client in database")
         
         logger.info("Client created successfully", client_id=client_id, name=name)
@@ -152,12 +164,15 @@ class ClientService:
             db_id
         )
         
-        # Return client data (without API key in doc) and API key separately
+        # Return client data (without API key in doc) and API key
+        # separately
         client_data = {
             "clientId": client_id,
             "name": name,
             "enabled": True,
-            "_metadata": created_client.get("_metadata", {}) if created_client else {}
+            "_metadata": (
+                created_client.get("_metadata", {}) if created_client else {}
+            )
         }
         
         return client_data, api_key
@@ -222,9 +237,12 @@ class ClientService:
             "_metadata": client.get("_metadata", {})
         }
     
-    def get_client_for_auth(self, client_id: str) -> Optional[Dict[str, Any]]:
+    def get_client_for_auth(
+        self, client_id: str
+    ) -> Optional[Dict[str, Any]]:
         """
         Get a client by ID with authentication data (salt and hash).
+        
         Used for API key verification.
         
         Args:
@@ -233,7 +251,9 @@ class ClientService:
         Returns:
             Client dictionary with salt and hash, or None if not found
         """
-        business_logger.log_operation("client_service", "get_client_for_auth", client_id=client_id)
+        business_logger.log_operation(
+            "client_service", "get_client_for_auth", client_id=client_id
+        )
         
         client = db_find_one(
             self.mongo_client,
@@ -258,7 +278,12 @@ class ClientService:
             "hash": client.get("hash")
         }
     
-    def update_client(self, client_id: str, name: Optional[str] = None, enabled: Optional[bool] = None) -> bool:
+    def update_client(
+        self,
+        client_id: str,
+        name: Optional[str] = None,
+        enabled: Optional[bool] = None
+    ) -> bool:
         """
         Update a client's name and/or enabled status.
         
@@ -270,7 +295,13 @@ class ClientService:
         Returns:
             True if update successful, False otherwise
         """
-        business_logger.log_operation("client_service", "update_client", client_id=client_id, name=name, enabled=enabled)
+        business_logger.log_operation(
+            "client_service",
+            "update_client",
+            client_id=client_id,
+            name=name,
+            enabled=enabled
+        )
         
         # First verify client exists
         client = db_find_one(
@@ -308,7 +339,11 @@ class ClientService:
         )
         
         if success:
-            logger.info("Client updated successfully", client_id=client_id, updates=updates)
+            logger.info(
+                "Client updated successfully",
+                client_id=client_id,
+                updates=updates
+            )
         else:
             logger.error("Failed to update client", client_id=client_id)
         
@@ -324,7 +359,9 @@ class ClientService:
         Returns:
             True if deletion successful, False otherwise
         """
-        business_logger.log_operation("client_service", "delete_client", client_id=client_id)
+        business_logger.log_operation(
+            "client_service", "delete_client", client_id=client_id
+        )
         
         # First verify client exists
         client = db_find_one(
@@ -367,7 +404,9 @@ class ClientService:
         Returns:
             New enabled status, or None if client not found
         """
-        business_logger.log_operation("client_service", "toggle_client_enabled", client_id=client_id)
+        business_logger.log_operation(
+            "client_service", "toggle_client_enabled", client_id=client_id
+        )
         
         # Get current client
         client = db_find_one(
@@ -397,13 +436,19 @@ class ClientService:
         )
         
         if success:
-            logger.info("Client enabled status toggled", client_id=client_id, enabled=new_enabled)
+            logger.info(
+                "Client enabled status toggled",
+                client_id=client_id,
+                enabled=new_enabled
+            )
             return new_enabled
         else:
             logger.error("Failed to toggle client enabled status", client_id=client_id)
             return None
     
-    def rotate_client_key(self, client_id: str) -> Tuple[Optional[str], Optional[str]]:
+    def rotate_client_key(
+        self, client_id: str
+    ) -> Tuple[Optional[str], Optional[str]]:
         """
         Rotate a client's API key (generate new salt and key, update hash).
         
@@ -413,7 +458,9 @@ class ClientService:
         Returns:
             Tuple of (client_id, api_key) or (None, None) if client not found
         """
-        business_logger.log_operation("client_service", "rotate_client_key", client_id=client_id)
+        business_logger.log_operation(
+            "client_service", "rotate_client_key", client_id=client_id
+        )
         
         # Get current client
         client = db_find_one(

@@ -1,0 +1,109 @@
+meta {
+  name: Update Jobs Batch
+  type: http
+  seq: 30
+}
+
+patch {
+  url: {{baseUrl}}/jobs/batch
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  client_id: {{clientId}}
+  client_api_key: {{clientApiKey}}
+}
+
+body:json {
+  {
+    "jobs": [
+      {
+        "jobId": "{{createdBatchJobId1}}",
+        "priority": 500,
+        "temperature": 0.9,
+        "clientReference": {
+          "ref": "batch-ref-1-updated"
+        }
+      },
+      {
+        "jobId": "{{createdBatchJobId2}}",
+        "priority": 600,
+        "temperature": 0.5,
+        "clientReference": {
+          "ref": "batch-ref-2-updated"
+        }
+      },
+      {
+        "jobId": "{{createdBatchJobId3}}",
+        "priority": 700,
+        "temperature": 0.4
+      }
+    ]
+  }
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Response is an array", function() {
+    expect(res.getBody()).to.be.an('array');
+  });
+  
+  test("Response contains 3 jobs", function() {
+    const jobs = res.getBody();
+    expect(jobs.length).to.equal(3);
+  });
+  
+  test("First job has updated properties", function() {
+    const jobs = res.getBody();
+    const job1 = jobs.find(job => job.jobId === bru.getVar("createdBatchJobId1"));
+    expect(job1).to.exist;
+    expect(job1.priority).to.equal(500);
+    expect(job1.temperature).to.equal(0.9);
+    expect(job1.clientReference.ref).to.equal('batch-ref-1-updated');
+    expect(job1.status).to.equal('PENDING');
+    expect(job1.operation).to.equal('process');
+  });
+  
+  test("Second job has updated properties", function() {
+    const jobs = res.getBody();
+    const job2 = jobs.find(job => job.jobId === bru.getVar("createdBatchJobId2"));
+    expect(job2).to.exist;
+    expect(job2.priority).to.equal(600);
+    expect(job2.temperature).to.equal(0.5);
+    expect(job2.clientReference.ref).to.equal('batch-ref-2-updated');
+    expect(job2.status).to.equal('PENDING');
+  });
+  
+  test("Third job has updated properties", function() {
+    const jobs = res.getBody();
+    const job3 = jobs.find(job => job.jobId === bru.getVar("createdBatchJobId3"));
+    expect(job3).to.exist;
+    expect(job3.priority).to.equal(700);
+    expect(job3.temperature).to.equal(0.4);
+    expect(job3.status).to.equal('PENDING');
+  });
+  
+  test("All jobs have _metadata with updatedAt timestamp", function() {
+    const jobs = res.getBody();
+    jobs.forEach(function(job) {
+      expect(job).to.have.property('_metadata');
+      expect(job._metadata).to.have.property('updatedAt');
+    });
+  });
+  
+  test("Other fields remain unchanged", function() {
+    const jobs = res.getBody();
+    jobs.forEach(function(job) {
+      expect(job).to.have.property('operation');
+      expect(job).to.have.property('model');
+      expect(job).to.have.property('requestData');
+      expect(job).to.have.property('prompts');
+    });
+  });
+}
+

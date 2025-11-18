@@ -21,12 +21,8 @@ body:json {
     "workerId": "test-worker-{{$timestamp}}",
     "config": {
       "pollInterval": 10,
-      "maxItemsPerBatch": 50,
-      "modelFilter": "o3-mini",
-      "operationFilter": "process",
-      "clientReferenceFilters": {
-        "ref": "test-ref-123"
-      }
+      "maxItemsPerBatch": 1,
+      "modelFilter": "o3-mini"
     }
   }
 }
@@ -64,6 +60,3 @@ tests {
     expect(worker._metadata).to.have.property('createdAt');
   });
 }
-
-
-

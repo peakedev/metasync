@@ -17,22 +17,22 @@ headers {
 
 body:json {
   {
-    "name": "mistral-medium-2505",
-    "sdk": "ChatCompletionsClient",
+    "name": "test model",
+    "sdk": "test",
     "endpoint": "https://myendpoint.com",
-    "apiType": "foundry",
-    "apiVersion": "2024-05-01-preview",
-    "deployment": "mistral-medium-2505",
+    "apiType": "jeeee",
+    "apiVersion": "2025-01-01-preview",
+    "deployment": "gptest",
     "service": "azure-ai",
-    "key": "KEY-MISTRAL-MEDIUM-2505",
+    "key": "KEY-GPTEST",
     "maxToken": 100000,
     "minTemperature": 0,
     "maxTemperature": 1,
     "cost": {
       "tokens": 1000,
       "currency": "USD",
-      "input": 0.0002,
-      "output": 0.0004
+      "input": 1.0000,
+      "output": 1.0000
     }
   }
 }
@@ -75,4 +75,3 @@ tests {
     expect(model.cost).to.have.property('output');
   });
 }
-

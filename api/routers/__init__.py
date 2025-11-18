@@ -1,5 +1,2 @@
-"""API routers for FastAPI endpoints"""
-
-
-
+"""API routers for FastAPI endpoints."""
 

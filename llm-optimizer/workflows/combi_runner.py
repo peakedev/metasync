@@ -1,8 +1,9 @@
 import itertools
 import logging
+import sys
+import os
 from typing import Dict, List, Optional, Tuple, Any
 from dataclasses import dataclass
-import sys, os
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -66,8 +67,13 @@ def ensure_run_exists(
         ConnectionError: If database operations fail
     """
     try:
-        doc = db_find_one(mongo_client, db_name, "runs", {"test_id": test_id}, {"runs.run": 1})
-        if not any(run.get("run") == run_combi for run in doc.get("runs", [])):
+        doc = db_find_one(
+            mongo_client, db_name, "runs", {"test_id": test_id},
+            {"runs.run": 1}
+        )
+        if not any(
+            run.get("run") == run_combi for run in doc.get("runs", [])
+        ):
             log_entry = {
                 "run": run_combi,
                 **combo.to_dict(),
@@ -75,13 +81,15 @@ def ensure_run_exists(
             }
             # Update the existing document to add the new run
             db_update(
-            mongo_client,
-            db_name,
-            "runs",
-            str(doc["_id"]),
-            {"$push": {"runs": log_entry}}
-        )
-            logger.info(f"Created new run configuration for {run_combi}")
+                mongo_client,
+                db_name,
+                "runs",
+                str(doc["_id"]),
+                {"$push": {"runs": log_entry}}
+            )
+            logger.info(
+                f"Created new run configuration for {run_combi}"
+            )
     except Exception as e:
         logger.error(f"Failed to ensure run existence: {str(e)}")
         raise

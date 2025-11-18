@@ -1,24 +1,25 @@
-from pymongo import MongoClient
-from bson import ObjectId
-from datetime import datetime
 import logging
+from datetime import datetime
 
-import logging
-from bson import ObjectId
-from datetime import datetime
 from pymongo import MongoClient
+from bson import ObjectId
+
 
 logger = logging.getLogger(__name__)
 
 def migrate_prompts(
     client: MongoClient,
     test_id: str,
-    prompt_names: list = ["base_prompt", "meta_prompt", "eval_parameters"]
+    prompt_names: list = None
 ):
     """
-    Migrate specific prompt fields from 'runs' collection (source)
-    to 'prompts' collection (target), filtered by test_id.
+    Migrate specific prompt fields.
+    
+    From 'runs' collection (source) to 'prompts' collection (target),
+    filtered by test_id.
     """
+    if prompt_names is None:
+        prompt_names = ["base_prompt", "meta_prompt", "eval_parameters"]
     source_db = client["client-poc"]
     target_db = client["poc-llm-processor"]
 
@@ -50,7 +51,9 @@ def migrate_prompts(
         }
 
         prompt_collection.insert_one(target_doc)
-        logger.info(f"✅ Migrated prompt '{name}' for test_id= {test_id}")
+        logger.info(
+            f"✅ Migrated prompt '{name}' for test_id= {test_id}"
+        )
 
 
 
@@ -87,15 +90,25 @@ def update_prompt(
     result = prompt_collection.update_one(query, update_doc, upsert=True)
 
     if result.matched_count > 0:
-        logger.info(f"🛠️ Updated existing prompt '{prompt_name}' (version={version})")
+        logger.info(
+            f"🛠️ Updated existing prompt '{prompt_name}' "
+            f"(version={version})"
+        )
     else:
-        logger.info(f"✨ Created new prompt '{prompt_name}' (version={version})")
+        logger.info(
+            f"✨ Created new prompt '{prompt_name}' (version={version})"
+        )
 
     # Retourner le document à jour
     return prompt_collection.find_one(query)
 
 
-def find_prompt(client: MongoClient, name: str, version: str, prompt_type: str = "system"):
+def find_prompt(
+    client: MongoClient,
+    name: str,
+    version: str,
+    prompt_type: str = "system"
+):
     """
     Retrieve a specific prompt document by name, version, and type.
     """
