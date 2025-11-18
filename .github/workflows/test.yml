@@ -122,6 +122,9 @@ jobs:
         run: |
           echo "Discovering Bruno test collections..."
           
+          # Create results directory
+          mkdir -p test-results
+          
           # Find all directories with bruno.json (indicates a Bruno collection)
           for collection_dir in tests/bruno/*/; do
             # Remove trailing slash
@@ -139,8 +142,10 @@ jobs:
               
               cd "$collection_dir"
               
-              # Run Bruno tests, continue on error so all suites run
-              bru run --env local --output ../../.. --reporter-junit "../../../results-${collection_name}.xml" || echo "⚠️  Tests in $collection_name had failures"
+              # Run Bruno tests with both JUnit and HTML output
+              bru run --env local --output ../../.. \
+                --reporter-junit "../../../test-results/results-${collection_name}.xml" \
+                --reporter-html "../../../test-results/report-${collection_name}.html" || echo "⚠️  Tests in $collection_name had failures"
               
               # Return to project root
               cd - > /dev/null
@@ -161,13 +166,133 @@ jobs:
           echo "=== MongoDB Connection Test ==="
           mongosh --host localhost --port 27017 metasync-test --eval 'db.getCollectionNames()'
       
+      - name: Generate combined HTML report index
+        if: always()
+        run: |
+          cat > test-results/index.html << 'EOF'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Metasync Test Results</title>
+            <style>
+              body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+                max-width: 1200px;
+                margin: 0 auto;
+                padding: 20px;
+                background: #f5f5f5;
+              }
+              h1 {
+                color: #333;
+                border-bottom: 3px solid #4CAF50;
+                padding-bottom: 10px;
+              }
+              .test-suite {
+                background: white;
+                border-radius: 8px;
+                padding: 20px;
+                margin: 15px 0;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                transition: transform 0.2s;
+              }
+              .test-suite:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+              }
+              .test-suite h2 {
+                margin-top: 0;
+                color: #2196F3;
+              }
+              .test-suite a {
+                display: inline-block;
+                padding: 10px 20px;
+                background: #2196F3;
+                color: white;
+                text-decoration: none;
+                border-radius: 4px;
+                transition: background 0.3s;
+              }
+              .test-suite a:hover {
+                background: #1976D2;
+              }
+              .timestamp {
+                color: #666;
+                font-size: 0.9em;
+              }
+            </style>
+          </head>
+          <body>
+            <h1>🧪 Metasync API Test Results</h1>
+            <p class="timestamp">Generated: $(date -u '+%Y-%m-%d %H:%M:%S UTC')</p>
+            <div class="test-suites">
+          EOF
+          
+          # Add links to each test suite report
+          for report in test-results/report-*.html; do
+            if [ -f "$report" ]; then
+              suite_name=$(basename "$report" .html | sed 's/report-//')
+              cat >> test-results/index.html << EOF
+              <div class="test-suite">
+                <h2>📋 ${suite_name}</h2>
+                <a href="$(basename "$report")">View Test Report →</a>
+              </div>
+          EOF
+            fi
+          done
+          
+          cat >> test-results/index.html << 'EOF'
+            </div>
+          </body>
+          </html>
+          EOF
+          
+          echo "Generated test report index at test-results/index.html"
+      
       - name: Publish test results
         uses: EnricoMi/publish-unit-test-result-action@v2
         if: always()
         with:
           files: |
-            results-*.xml
+            test-results/results-*.xml
           check_name: Test Results
+      
+      - name: Upload HTML test reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-reports-html
+          path: test-results/
+          retention-days: 30
+      
+      - name: Add test report summary
+        if: always()
+        run: |
+          echo "## 📊 Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Test reports have been generated and are available as artifacts." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📥 Download HTML Reports" >> $GITHUB_STEP_SUMMARY
+          echo "1. Go to the [Actions tab](../../actions)" >> $GITHUB_STEP_SUMMARY
+          echo "2. Click on this workflow run" >> $GITHUB_STEP_SUMMARY
+          echo "3. Scroll down to **Artifacts**" >> $GITHUB_STEP_SUMMARY
+          echo "4. Download **test-reports-html**" >> $GITHUB_STEP_SUMMARY
+          echo "5. Extract and open \`index.html\` in your browser" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Count test suites
+          suite_count=$(find test-results -name "report-*.html" 2>/dev/null | wc -l || echo "0")
+          echo "### 📋 Test Suites Run: ${suite_count}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # List test suites
+          for report in test-results/report-*.html; do
+            if [ -f "$report" ]; then
+              suite_name=$(basename "$report" .html | sed 's/report-//')
+              echo "- ✅ ${suite_name}" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
       
       - name: Cleanup
         if: always()
