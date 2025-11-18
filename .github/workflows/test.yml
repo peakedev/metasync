@@ -142,10 +142,16 @@ jobs:
               
               cd "$collection_dir"
               
-              # Run Bruno tests with both JUnit and HTML output
+              # Run Bruno tests with both JUnit and HTML output, filter verbose stack traces
               bru run --env local \
                 --reporter-junit "../../../test-results/results-${collection_name}.xml" \
-                --reporter-html "../../../test-results/report-${collection_name}.html" || echo "⚠️  Tests in $collection_name had failures"
+                --reporter-html "../../../test-results/report-${collection_name}.html" 2>&1 | \
+                grep -v "at VM2 Wrapper" | \
+                grep -v "at /opt/hostedtoolcache" | \
+                grep -v "at /home/runner" | \
+                grep -v "at process.processTicksAndRejections" | \
+                grep -v "at async" | \
+                grep -v "node_modules/@usebruno" || echo "⚠️  Tests in $collection_name had failures"
               
               # Return to project root
               cd - > /dev/null
