@@ -1,22 +1,22 @@
 [
   {
-  "_id": {
-    "$oid": "690ca5e9ad148fa4c94f5bea"
-  },
-  "clientId": "4ed8e82e-5a94-40a6-a583-0ad6ec4ccaf2",
-  "name": "test",
-  "enabled": true,
-  "salt": "8f2cb95e4a4f75efc4159cd620735b6a72019f9ec1192efd5f6ff214ea7820b2",
-  "hash": "$argon2id$v=19$m=65536,t=3,p=4$47GBfrmT8VxIFd/cmtLlcQ$5qi2oe8PhoMmWCAjBWxNozV61kT8Qxd2rHpI39qiAhg",
-  "_metadata": {
-    "isDeleted": false,
-    "createdAt": "2025-11-06T14:43:05.287364",
-    "deletedAt": null,
-    "updatedAt": null,
-    "archivedAt": null,
-    "createdBy": null,
-    "updatedBy": null,
-    "deletedBy": null
+    "_id": {
+      "$oid": "691cd1f5b461e00d36208f37"
+    },
+    "clientId": "d486037e-d1d7-4213-980e-0f47d8677ad2",
+    "name": "Local",
+    "enabled": true,
+    "salt": "5d08e7d78acefba4fd39ef5c34b4f76ec4c11c9cb63193727505e9aa9ef2a8e8",
+    "hash": "$argon2id$v=19$m=65536,t=3,p=4$m5zP7NfJaYc7t0eZ7dIa6g$5IpFIR32pN/NRRQAvl0MbRxCtyEzIjy25Ba6o+3jJs0",
+    "_metadata": {
+      "isDeleted": false,
+      "createdAt": "2025-11-18T20:07:17.907914",
+      "deletedAt": null,
+      "updatedAt": null,
+      "archivedAt": null,
+      "createdBy": null,
+      "updatedBy": null,
+      "deletedBy": null
+    }
   }
-}
 ]
