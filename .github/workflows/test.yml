@@ -81,10 +81,23 @@ jobs:
       
       - name: Start metasync container
         run: |
+          # Load environment variables from pipeline-run.env
+          set -a
+          source tests/pipeline-run.env
+          set +a
+          
+          # Start container with environment variables
           docker run -d \
             --name metasync \
             --network host \
-            --env-file tests/pipeline-run.env \
+            -e DB_NAME="${DB_NAME}" \
+            -e DB_CONNECTION_STRING="${DB_CONNECTION_STRING}" \
+            -e API_KEY_PEPPER="${API_KEY_PEPPER}" \
+            -e ADMIN_API_KEY="${ADMIN_API_KEY}" \
+            -e DOCS_SECRET="${DOCS_SECRET}" \
+            -e POLL_INTERVAL="${POLL_INTERVAL}" \
+            -e MAX_ITEMS_PER_BATCH="${MAX_ITEMS_PER_BATCH}" \
+            -e NUM_LLM_WORKERS="${NUM_LLM_WORKERS}" \
             metasync:test
       
       - name: Wait for metasync to be healthy
