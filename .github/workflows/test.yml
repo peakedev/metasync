@@ -300,28 +300,59 @@ jobs:
         run: |
           echo "## 📊 Test Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Test reports have been generated and are available as artifacts." >> $GITHUB_STEP_SUMMARY
+          
+          # Add quick summary
+          echo "### 📋 Test Suites Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 📥 Download HTML Reports" >> $GITHUB_STEP_SUMMARY
-          echo "1. Go to the [Actions tab](../../actions)" >> $GITHUB_STEP_SUMMARY
-          echo "2. Click on this workflow run" >> $GITHUB_STEP_SUMMARY
-          echo "3. Scroll down to **Artifacts**" >> $GITHUB_STEP_SUMMARY
-          echo "4. Download **test-reports-html**" >> $GITHUB_STEP_SUMMARY
-          echo "5. Extract and open \`index.html\` in your browser" >> $GITHUB_STEP_SUMMARY
+          if [ -f /tmp/test-summary.txt ]; then
+            cat /tmp/test-summary.txt >> $GITHUB_STEP_SUMMARY
+          fi
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          # Count test suites
-          suite_count=$(find test-results -name "report-*.html" 2>/dev/null | wc -l || echo "0")
-          echo "### 📋 Test Suites Run: ${suite_count}" >> $GITHUB_STEP_SUMMARY
+          # Add detailed results for each suite
+          echo "### 📝 Detailed Test Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          # List test suites
-          for report in test-results/report-*.html; do
-            if [ -f "$report" ]; then
-              suite_name=$(basename "$report" .html | sed 's/report-//')
-              echo "- ✅ ${suite_name}" >> $GITHUB_STEP_SUMMARY
+          # Process each test suite
+          for collection_dir in tests/bruno/*/; do
+            collection_dir=${collection_dir%/}
+            collection_name=$(basename "$collection_dir")
+            
+            if [ -f "$collection_dir/bruno.json" ]; then
+              # Add collapsible section for each suite
+              echo "<details>" >> $GITHUB_STEP_SUMMARY
+              
+              # Determine if suite passed or failed
+              if grep -q "^✅ ${collection_name}$" /tmp/test-summary.txt 2>/dev/null; then
+                echo "<summary>✅ <strong>${collection_name}</strong> - All tests passed</summary>" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "<summary>❌ <strong>${collection_name}</strong> - Some tests failed</summary>" >> $GITHUB_STEP_SUMMARY
+              fi
+              
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+              
+              # Extract and show individual test results
+              if [ -f /tmp/${collection_name}.log ]; then
+                grep -E "^[0-9]+-.*\(" /tmp/${collection_name}.log | while read line; do
+                  if echo "$line" | grep -qE "\((200|201|204) "; then
+                    echo "✅ $line" >> $GITHUB_STEP_SUMMARY
+                  else
+                    echo "❌ $line" >> $GITHUB_STEP_SUMMARY
+                  fi
+                done
+              fi
+              
+              echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+              echo "</details>" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
             fi
           done
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📥 Download Full HTML Reports" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Full detailed reports with assertions and error messages are available in the **test-reports-html** artifact." >> $GITHUB_STEP_SUMMARY
       
       - name: Cleanup
         if: always()
