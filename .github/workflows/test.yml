@@ -124,61 +124,39 @@ jobs:
         run: |
           npm install -g @usebruno/cli
       
-      - name: Run health tests
+      - name: Run Bruno tests
         run: |
-          echo "Running health tests..."
-          cd tests/bruno/health
-          bru run --env local --output ../../.. --reporter-junit ../../../results-health.xml
-        continue-on-error: true
-      
-      - name: Run client tests
-        run: |
-          echo "Running client tests..."
-          cd tests/bruno/clients
-          bru run --env local --output ../../.. --reporter-junit ../../../results-clients.xml
-        continue-on-error: true
-      
-      - name: Run model tests
-        run: |
-          echo "Running model tests..."
-          cd tests/bruno/models
-          bru run --env local --output ../../.. --reporter-junit ../../../results-models.xml
-        continue-on-error: true
-      
-      - name: Run prompt tests
-        run: |
-          echo "Running prompt tests..."
-          cd tests/bruno/prompts
-          bru run --env local --output ../../.. --reporter-junit ../../../results-prompts.xml
-        continue-on-error: true
-      
-      - name: Run prompt-flow tests
-        run: |
-          echo "Running prompt-flow tests..."
-          cd tests/bruno/prompt-flows
-          bru run --env local --output ../../.. --reporter-junit ../../../results-prompt-flows.xml
-        continue-on-error: true
-      
-      - name: Run worker tests
-        run: |
-          echo "Running worker tests..."
-          cd tests/bruno/workers
-          bru run --env local --output ../../.. --reporter-junit ../../../results-workers.xml
-        continue-on-error: true
-      
-      - name: Run job tests
-        run: |
-          echo "Running job tests..."
-          cd tests/bruno/jobs
-          bru run --env local --output ../../.. --reporter-junit ../../../results-jobs.xml
-        continue-on-error: true
-      
-      - name: Run end-to-end tests
-        run: |
-          echo "Running end-to-end tests..."
-          cd tests/bruno/end-to-end
-          bru run --env local --output ../../.. --reporter-junit ../../../results-e2e.xml
-        continue-on-error: true
+          echo "Discovering Bruno test collections..."
+          
+          # Find all directories with bruno.json (indicates a Bruno collection)
+          for collection_dir in tests/bruno/*/; do
+            # Remove trailing slash
+            collection_dir=${collection_dir%/}
+            
+            # Get collection name
+            collection_name=$(basename "$collection_dir")
+            
+            # Check if bruno.json exists (confirms it's a collection)
+            if [ -f "$collection_dir/bruno.json" ]; then
+              echo ""
+              echo "=========================================="
+              echo "Running tests: $collection_name"
+              echo "=========================================="
+              
+              cd "$collection_dir"
+              
+              # Run Bruno tests, continue on error so all suites run
+              bru run --env local --output ../../.. --reporter-junit "../../../results-${collection_name}.xml" || echo "⚠️  Tests in $collection_name had failures"
+              
+              # Return to project root
+              cd - > /dev/null
+            fi
+          done
+          
+          echo ""
+          echo "=========================================="
+          echo "All test suites completed"
+          echo "=========================================="
       
       - name: Show container logs on failure
         if: failure()
