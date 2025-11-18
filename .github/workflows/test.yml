@@ -127,8 +127,9 @@ jobs:
         run: |
           echo "Discovering Bruno test collections..."
           
-          # Create results directory
+          # Create results directory and summary file
           mkdir -p test-results
+          touch /tmp/test-summary.txt
           
           # Find all directories with bruno.json (indicates a Bruno collection)
           for collection_dir in tests/bruno/*/; do
@@ -140,24 +141,27 @@ jobs:
             
             # Check if bruno.json exists (confirms it's a collection)
             if [ -f "$collection_dir/bruno.json" ]; then
-              echo ""
-              echo "=========================================="
-              echo "Running tests: $collection_name"
-              echo "=========================================="
-              
               cd "$collection_dir"
               
               # Run Bruno tests and capture output
               if bru run --env local \
                 --reporter-junit "../../../test-results/results-${collection_name}.xml" \
                 --reporter-html "../../../test-results/report-${collection_name}.html" > /tmp/${collection_name}.log 2>&1; then
-                echo "✅ All tests passed"
+                echo "✅ ${collection_name}" >> /tmp/test-summary.txt
+                echo "✅ ${collection_name}: All tests passed" >> /tmp/test-detail.txt
               else
-                echo "❌ Some tests failed"
-                # Show only test names and pass/fail status
-                grep -E "^[0-9]+-.*\((200|201|204|400|401|403|404|409|422|500)" /tmp/${collection_name}.log | head -20 || true
-                echo ""
-                echo "📄 Full details available in HTML report"
+                echo "❌ ${collection_name}" >> /tmp/test-summary.txt
+                echo "❌ ${collection_name}: Some tests failed" >> /tmp/test-detail.txt
+                
+                # Add test details with pass/fail indicators
+                grep -E "^[0-9]+-.*\(" /tmp/${collection_name}.log | while read line; do
+                  if echo "$line" | grep -qE "\((200|201|204) "; then
+                    echo "  ✅ $line" >> /tmp/test-detail.txt
+                  else
+                    echo "  ❌ $line" >> /tmp/test-detail.txt
+                  fi
+                done
+                echo "" >> /tmp/test-detail.txt
               fi
               
               # Return to project root
@@ -167,7 +171,15 @@ jobs:
           
           echo ""
           echo "=========================================="
-          echo "All test suites completed"
+          echo "TEST SUMMARY"
+          echo "=========================================="
+          cat /tmp/test-summary.txt
+          echo ""
+          echo "=========================================="
+          echo "DETAILED RESULTS"
+          echo "=========================================="
+          cat /tmp/test-detail.txt
+          echo "📄 Full details available in HTML report artifacts"
           echo "=========================================="
       
       - name: Show container logs
