@@ -58,7 +58,13 @@ jobs:
           for file in tests/data/*.json; do
             collection=$(basename "$file" .json)
             echo "Importing $collection from $file..."
-            mongoimport --host localhost --port 27017 --db metasync-test --collection "$collection" --file "$file" --jsonArray
+            
+            # Check if file has actual data (not just empty array)
+            if grep -q '"' "$file"; then
+              mongoimport --host localhost --port 27017 --db metasync-test --collection "$collection" --file "$file" --jsonArray
+            else
+              echo "  Skipping $collection (empty array)"
+            fi
           done
           
           # Create index on priority field in jobs collection
