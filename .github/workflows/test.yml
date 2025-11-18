@@ -149,18 +149,48 @@ jobs:
                 --reporter-html "../../../test-results/report-${collection_name}.html" > /tmp/${collection_name}.log 2>&1; then
                 echo "✅ ${collection_name}" >> /tmp/test-summary.txt
                 echo "✅ ${collection_name}: All tests passed" >> /tmp/test-detail.txt
+                # Still show all tests for passed suites
+                grep -E "^[0-9]+-.*\(" /tmp/${collection_name}.log | while read line; do
+                  echo "  ✅ $line" >> /tmp/test-detail.txt
+                done
+                echo "" >> /tmp/test-detail.txt
               else
                 echo "❌ ${collection_name}" >> /tmp/test-summary.txt
                 echo "❌ ${collection_name}: Some tests failed" >> /tmp/test-detail.txt
                 
-                # Add test details with pass/fail indicators
-                grep -E "^[0-9]+-.*\(" /tmp/${collection_name}.log | while read line; do
-                  if echo "$line" | grep -qE "\((200|201|204) "; then
-                    echo "  ✅ $line" >> /tmp/test-detail.txt
-                  else
-                    echo "  ❌ $line" >> /tmp/test-detail.txt
+                # Parse test results - check if test has assertion errors
+                current_test=""
+                test_failed=false
+                
+                while IFS= read -r line; do
+                  # Detect test name line
+                  if echo "$line" | grep -qE "^[0-9]+-.*\("; then
+                    # Output previous test result if exists
+                    if [ -n "$current_test" ]; then
+                      if [ "$test_failed" = true ]; then
+                        echo "  ❌ $current_test" >> /tmp/test-detail.txt
+                      else
+                        echo "  ✅ $current_test" >> /tmp/test-detail.txt
+                      fi
+                    fi
+                    # Start new test
+                    current_test="$line"
+                    test_failed=false
+                  # Check for assertion errors
+                  elif echo "$line" | grep -qE "AssertionError|Error:"; then
+                    test_failed=true
                   fi
-                done
+                done < /tmp/${collection_name}.log
+                
+                # Output last test
+                if [ -n "$current_test" ]; then
+                  if [ "$test_failed" = true ]; then
+                    echo "  ❌ $current_test" >> /tmp/test-detail.txt
+                  else
+                    echo "  ✅ $current_test" >> /tmp/test-detail.txt
+                  fi
+                fi
+                
                 echo "" >> /tmp/test-detail.txt
               fi
               
@@ -332,15 +362,34 @@ jobs:
               echo "" >> $GITHUB_STEP_SUMMARY
               echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
               
-              # Extract and show individual test results
+              # Extract and show individual test results based on actual pass/fail
               if [ -f /tmp/${collection_name}.log ]; then
-                grep -E "^[0-9]+-.*\(" /tmp/${collection_name}.log | while read line; do
-                  if echo "$line" | grep -qE "\((200|201|204) "; then
-                    echo "✅ $line" >> $GITHUB_STEP_SUMMARY
-                  else
-                    echo "❌ $line" >> $GITHUB_STEP_SUMMARY
+                current_test=""
+                test_failed=false
+                
+                while IFS= read -r line; do
+                  if echo "$line" | grep -qE "^[0-9]+-.*\("; then
+                    if [ -n "$current_test" ]; then
+                      if [ "$test_failed" = true ]; then
+                        echo "❌ $current_test" >> $GITHUB_STEP_SUMMARY
+                      else
+                        echo "✅ $current_test" >> $GITHUB_STEP_SUMMARY
+                      fi
+                    fi
+                    current_test="$line"
+                    test_failed=false
+                  elif echo "$line" | grep -qE "AssertionError|Error:"; then
+                    test_failed=true
                   fi
-                done
+                done < /tmp/${collection_name}.log
+                
+                if [ -n "$current_test" ]; then
+                  if [ "$test_failed" = true ]; then
+                    echo "❌ $current_test" >> $GITHUB_STEP_SUMMARY
+                  else
+                    echo "✅ $current_test" >> $GITHUB_STEP_SUMMARY
+                  fi
+                fi
               fi
               
               echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
