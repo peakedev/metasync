@@ -157,14 +157,18 @@ jobs:
           echo "All test suites completed"
           echo "=========================================="
       
-      - name: Show container logs on failure
-        if: failure()
+      - name: Show container logs
+        if: always()
         run: |
-          echo "=== Metasync Container Logs ==="
-          docker logs metasync
+          echo "=== Metasync Container Logs (Last 100 lines) ==="
+          docker logs --tail 100 metasync
           echo ""
           echo "=== MongoDB Connection Test ==="
           mongosh --host localhost --port 27017 metasync-test --eval 'db.getCollectionNames()'
+          echo ""
+          echo "=== MongoDB Collections Content ==="
+          mongosh --host localhost --port 27017 metasync-test --eval 'db.clients.countDocuments()'
+          mongosh --host localhost --port 27017 metasync-test --eval 'db.models.countDocuments()'
       
       - name: Generate combined HTML report index
         if: always()
