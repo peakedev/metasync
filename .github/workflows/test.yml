@@ -143,7 +143,7 @@ jobs:
               cd "$collection_dir"
               
               # Run Bruno tests with both JUnit and HTML output
-              bru run --env local --output ../../.. \
+              bru run --env local \
                 --reporter-junit "../../../test-results/results-${collection_name}.xml" \
                 --reporter-html "../../../test-results/report-${collection_name}.html" || echo "⚠️  Tests in $collection_name had failures"
               
