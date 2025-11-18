@@ -127,49 +127,57 @@ jobs:
       - name: Run health tests
         run: |
           echo "Running health tests..."
-          bru run tests/bruno/health --env local --reporter-junit results-health.xml
+          cd tests/bruno/health
+          bru run --env local --output ../../.. --reporter-junit ../../../results-health.xml
         continue-on-error: true
       
       - name: Run client tests
         run: |
           echo "Running client tests..."
-          bru run tests/bruno/clients --env local --reporter-junit results-clients.xml
+          cd tests/bruno/clients
+          bru run --env local --output ../../.. --reporter-junit ../../../results-clients.xml
         continue-on-error: true
       
       - name: Run model tests
         run: |
           echo "Running model tests..."
-          bru run tests/bruno/models --env local --reporter-junit results-models.xml
+          cd tests/bruno/models
+          bru run --env local --output ../../.. --reporter-junit ../../../results-models.xml
         continue-on-error: true
       
       - name: Run prompt tests
         run: |
           echo "Running prompt tests..."
-          bru run tests/bruno/prompts --env local --reporter-junit results-prompts.xml
+          cd tests/bruno/prompts
+          bru run --env local --output ../../.. --reporter-junit ../../../results-prompts.xml
         continue-on-error: true
       
       - name: Run prompt-flow tests
         run: |
           echo "Running prompt-flow tests..."
-          bru run tests/bruno/prompt-flows --env local --reporter-junit results-prompt-flows.xml
+          cd tests/bruno/prompt-flows
+          bru run --env local --output ../../.. --reporter-junit ../../../results-prompt-flows.xml
         continue-on-error: true
       
       - name: Run worker tests
         run: |
           echo "Running worker tests..."
-          bru run tests/bruno/workers --env local --reporter-junit results-workers.xml
+          cd tests/bruno/workers
+          bru run --env local --output ../../.. --reporter-junit ../../../results-workers.xml
         continue-on-error: true
       
       - name: Run job tests
         run: |
           echo "Running job tests..."
-          bru run tests/bruno/jobs --env local --reporter-junit results-jobs.xml
+          cd tests/bruno/jobs
+          bru run --env local --output ../../.. --reporter-junit ../../../results-jobs.xml
         continue-on-error: true
       
       - name: Run end-to-end tests
         run: |
           echo "Running end-to-end tests..."
-          bru run tests/bruno/end-to-end --env local --reporter-junit results-e2e.xml
+          cd tests/bruno/end-to-end
+          bru run --env local --output ../../.. --reporter-junit ../../../results-e2e.xml
         continue-on-error: true
       
       - name: Show container logs on failure
