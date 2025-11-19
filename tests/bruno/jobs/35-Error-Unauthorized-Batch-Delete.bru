@@ -1,7 +1,7 @@
 meta {
   name: Error - Unauthorized Batch Delete
   type: http
-  seq: 35
+  seq: 38
 }
 
 delete {
@@ -33,4 +33,3 @@ tests {
     expect(body.detail).to.include('authentication');
   });
 }
-

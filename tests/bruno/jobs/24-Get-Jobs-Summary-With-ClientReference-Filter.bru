@@ -1,7 +1,7 @@
 meta {
   name: Get Jobs Summary With ClientReference Filter
   type: http
-  seq: 30
+  seq: 31
 }
 
 get {
@@ -30,8 +30,40 @@ tests {
     expect(summary).to.have.property('PENDING');
     expect(summary).to.have.property('PROCESSING');
     expect(summary).to.have.property('PROCESSED');
-    expect(summary).to.have.property('ERROR');
+    expect(summary).to.have.property('ERROR_PROCESSING');
+    expect(summary).to.have.property('ERROR_CONSUMING');
     expect(summary).to.have.property('CANCELED');
+    expect(summary).to.have.property('CONSUMED');
     expect(summary).to.have.property('total');
+  });
+  
+  test("Status counts are numbers", function() {
+    const summary = res.getBody();
+    expect(summary.PENDING).to.be.a('number');
+    expect(summary.PROCESSING).to.be.a('number');
+    expect(summary.PROCESSED).to.be.a('number');
+    expect(summary.ERROR_PROCESSING).to.be.a('number');
+    expect(summary.ERROR_CONSUMING).to.be.a('number');
+    expect(summary.CANCELED).to.be.a('number');
+    expect(summary.CONSUMED).to.be.a('number');
+    expect(summary.total).to.be.a('number');
+  });
+  
+  test("Total equals sum of all statuses", function() {
+    const summary = res.getBody();
+    const sum = summary.PENDING + summary.PROCESSING + summary.PROCESSED + summary.ERROR_PROCESSING + summary.ERROR_CONSUMING + summary.CANCELED;
+    expect(summary.total).to.equal(sum);
+  });
+  
+  test("All counts are non-negative", function() {
+    const summary = res.getBody();
+    expect(summary.PENDING).to.be.at.least(0);
+    expect(summary.PROCESSING).to.be.at.least(0);
+    expect(summary.PROCESSED).to.be.at.least(0);
+    expect(summary.ERROR_PROCESSING).to.be.at.least(0);
+    expect(summary.ERROR_CONSUMING).to.be.at.least(0);
+    expect(summary.CANCELED).to.be.at.least(0);
+    expect(summary.CONSUMED).to.be.at.least(0);
+    expect(summary.total).to.be.at.least(0);
   });
 }

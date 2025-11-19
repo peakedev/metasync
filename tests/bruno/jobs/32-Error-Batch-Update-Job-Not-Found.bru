@@ -1,7 +1,7 @@
 meta {
   name: Error - Batch Update Job Not Found
   type: http
-  seq: 32
+  seq: 35
 }
 
 patch {
@@ -38,4 +38,3 @@ tests {
     expect(body.detail).to.include('Job not found');
   });
 }
-

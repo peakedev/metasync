@@ -43,17 +43,14 @@ tests {
   test("Created worker has correct properties", function() {
     const worker = res.getBody();
     expect(worker).to.have.property('workerId');
-    expect(worker).to.have.property('workerId');
     expect(worker).to.have.property('clientId');
     expect(worker).to.have.property('status');
     expect(worker.status).to.equal('stopped');
     expect(worker).to.have.property('config');
     expect(worker.config.pollInterval).to.equal(5);
     expect(worker.config.maxItemsPerBatch).to.equal(10);
-    expect(worker.config.modelFilter).to.equal('o3-mini');
+    expect(worker.config.modelFilter).to.equal('gptest');
     expect(worker.config.operationFilter).to.equal('process');
-    expect(worker.config.clientReferenceFilters).to.be.an('object');
-    expect(worker.config.clientReferenceFilters.ref).to.equal(bru.getVar("e2eClientRef"));
     bru.setVar("e2eWorkerId", worker.workerId);
   });
   

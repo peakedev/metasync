@@ -107,9 +107,14 @@ class JobService:
         - PENDING → CANCELED
         - PROCESSED → CONSUMED
         - PROCESSED → ERROR_CONSUMING
+        - PROCESSED → CANCELED
+        - ERROR_PROCESSING → PENDING (retry failed job)
+        - ERROR_CONSUMING → PROCESSED (retry failed consumption)
         
         Admin allowed transitions (in addition to client transitions):
         - CANCELED → PENDING
+        - ANY → ERROR_PROCESSING (admin only)
+        - ANY → ERROR_CONSUMING (admin only)
         
         Args:
             current_status: Current job status
@@ -122,7 +127,9 @@ class JobService:
         # Client transitions
         client_transitions = {
             JobStatus.PENDING: [JobStatus.CANCELED],
-            JobStatus.PROCESSED: [JobStatus.CONSUMED, JobStatus.ERROR_CONSUMING]
+            JobStatus.PROCESSED: [JobStatus.CONSUMED, JobStatus.ERROR_CONSUMING, JobStatus.CANCELED],
+            JobStatus.ERROR_PROCESSING: [JobStatus.PENDING],
+            JobStatus.ERROR_CONSUMING: [JobStatus.PROCESSED]
         }
         
         # Admin-only transitions
@@ -140,6 +147,10 @@ class JobService:
             admin_allowed = admin_transitions.get(current_status, [])
             if new_status in admin_allowed:
                 return True
+            
+            # Admin can set error states from any status
+            if new_status in [JobStatus.ERROR_PROCESSING, JobStatus.ERROR_CONSUMING]:
+                return True
         
         return False
     
@@ -153,6 +164,8 @@ class JobService:
         - PROCESSING → PROCESSED (workers)
         - PROCESSING → ERROR_PROCESSING (workers)
         - CANCELED → PENDING (admin only)
+        - ANY → ERROR_PROCESSING (admin only)
+        - ANY → ERROR_CONSUMING (admin only)
         
         Note: PROCESSED → CONSUMED and PROCESSED → ERROR_CONSUMING are client transitions,
         not worker transitions. Workers don't know what the client will do with the job.
@@ -186,6 +199,10 @@ class JobService:
         if is_admin:
             admin_allowed = admin_transitions.get(current_status, [])
             if new_status in admin_allowed:
+                return True
+            
+            # Admin can set error states from any status
+            if new_status in [JobStatus.ERROR_PROCESSING, JobStatus.ERROR_CONSUMING]:
                 return True
         
         return False

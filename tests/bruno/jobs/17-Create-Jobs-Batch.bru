@@ -1,7 +1,7 @@
 meta {
   name: Create Jobs Batch
   type: http
-  seq: 23
+  seq: 26
 }
 
 post {
@@ -22,7 +22,7 @@ body:json {
       {
         "operation": "process",
         "prompts": ["{{promptId1}}"],
-        "model": "o3-mini",
+        "model": "gptest",
         "temperature": 0.7,
         "priority": 100,
         "id": "test-batch-job-1-{{$timestamp}}",
@@ -37,7 +37,7 @@ body:json {
       {
         "operation": "process",
         "prompts": ["{{promptId1}}"],
-        "model": "o3-mini",
+        "model": "gptest",
         "temperature": 0.8,
         "priority": 200,
         "id": "test-batch-job-2-{{$timestamp}}",
@@ -52,7 +52,7 @@ body:json {
       {
         "operation": "process",
         "prompts": ["{{promptId1}}"],
-        "model": "o3-mini",
+        "model": "gptest",
         "temperature": 0.6,
         "priority": 150,
         "requestData": {
@@ -83,7 +83,7 @@ tests {
     expect(job1.operation).to.equal('process');
     expect(job1.prompts).to.be.an('array');
     expect(job1.prompts.length).to.be.greaterThan(0);
-    expect(job1.model).to.equal('o3-mini');
+    expect(job1.model).to.equal('gptest');
     expect(job1.temperature).to.equal(0.7);
     expect(job1.priority).to.equal(100);
     expect(job1.status).to.equal('PENDING');

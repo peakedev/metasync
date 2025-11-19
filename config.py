@@ -57,6 +57,11 @@ class ConfigFactory:
                 name = model.get("name")
                 key = model.get("key")
                 service = model.get("service")
+                sdk = model.get("sdk")
+                
+                # Skip loading keys for test SDK models
+                if sdk == "test":
+                    continue
                 
                 if name and key and service:
                     attr_name = _model_name_to_attr_name(name)

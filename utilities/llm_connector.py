@@ -51,12 +51,16 @@ def complete_with_model(
             "apiVersion, deployment."
         )
     
-    # Get API key from config using the model name
-    api_key = config.get_model_key(model_name)
-    if not api_key:
-        raise ValueError(
-            f"API key not found in config for model '{model_name}'"
-        )
+    # Skip API key check for test SDK
+    if sdk != "test":
+        # Get API key from config using the model name
+        api_key = config.get_model_key(model_name)
+        if not api_key:
+            raise ValueError(
+                f"API key not found in config for model '{model_name}'"
+            )
+    else:
+        api_key = None  # Test SDK doesn't need an API key
 
     content = (system_prompt or "") + (user_content or "")
     messages = [{"role": "system", "content": content}]
@@ -168,7 +172,8 @@ def complete_with_model(
 
         elif sdk == "test":
             # Fake test SDK that returns a dummy response without making API calls
-            response_text = "sup' ma boi?"
+            # Returns valid JSON for better compatibility with processing logic
+            response_text = '{"test": "response", "message": "This is a dummy response from the test SDK"}'
             
             # Create a simple object to mimic usage structure
             class FakeUsage:

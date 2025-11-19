@@ -1,7 +1,7 @@
 meta {
   name: Error - Batch Delete Job Not Found
   type: http
-  seq: 33
+  seq: 36
 }
 
 delete {
@@ -35,4 +35,3 @@ tests {
     expect(body.detail).to.include('Job not found');
   });
 }
-

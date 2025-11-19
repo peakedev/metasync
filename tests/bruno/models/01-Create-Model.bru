@@ -52,11 +52,11 @@ tests {
   
   test("Created model has correct properties", function() {
     const model = res.getBody();
-    expect(model.name).to.equal('mistral-medium-2505');
-    expect(model.sdk).to.equal('ChatCompletionsClient');
+    expect(model.name).to.equal('test model');
+    expect(model.sdk).to.equal('test');
     expect(model).to.have.property('model_id');
     expect(model).to.have.property('key');
-    expect(model.key).to.equal('KEY-MISTRAL-MEDIUM-2505');
+    expect(model.key).to.equal('KEY-GPTEST');
     bru.setVar("createdModelId", res.getBody().model_id);
   });
   
