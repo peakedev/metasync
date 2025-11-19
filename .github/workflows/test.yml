@@ -154,8 +154,8 @@ jobs:
               --reporter-html "../../test-results/report-${test_folder}.html" > /tmp/${test_folder}.log 2>&1; then
               echo "✅ ${test_folder}" >> /tmp/test-summary.txt
               echo "✅ ${test_folder}: All tests passed" >> /tmp/test-detail.txt
-              # Still show all tests for passed suites
-              grep -E "^[0-9]+-.*\(" /tmp/${test_folder}.log | while read line; do
+              # Show all tests for passed suites
+              grep -E "^[0-9]+-" /tmp/${test_folder}.log | while read line; do
                 echo "  ✅ $line" >> /tmp/test-detail.txt
               done
               echo "" >> /tmp/test-detail.txt
@@ -168,8 +168,8 @@ jobs:
               test_failed=false
               
               while IFS= read -r line; do
-                # Detect test name line
-                if echo "$line" | grep -qE "^[0-9]+-.*\("; then
+                # Detect test name line (starts with number and dash)
+                if echo "$line" | grep -qE "^[0-9]+-"; then
                   # Output previous test result if exists
                   if [ -n "$current_test" ]; then
                     if [ "$test_failed" = true ]; then
@@ -181,8 +181,8 @@ jobs:
                   # Start new test
                   current_test="$line"
                   test_failed=false
-                # Check for assertion errors
-                elif echo "$line" | grep -qE "AssertionError|Error:"; then
+                # Check for assertion errors or failures
+                elif echo "$line" | grep -qE "AssertionError|Error:|failed|FAIL"; then
                   test_failed=true
                 fi
               done < /tmp/${test_folder}.log
@@ -370,34 +370,15 @@ jobs:
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
             
-            # Extract and show individual test results based on actual pass/fail
-            if [ -f /tmp/${folder_name}.log ]; then
-              current_test=""
-              test_failed=false
-              
-              while IFS= read -r line; do
-                if echo "$line" | grep -qE "^[0-9]+-.*\("; then
-                  if [ -n "$current_test" ]; then
-                    if [ "$test_failed" = true ]; then
-                      echo "❌ $current_test" >> $GITHUB_STEP_SUMMARY
-                    else
-                      echo "✅ $current_test" >> $GITHUB_STEP_SUMMARY
-                    fi
-                  fi
-                  current_test="$line"
-                  test_failed=false
-                elif echo "$line" | grep -qE "AssertionError|Error:"; then
-                  test_failed=true
-                fi
-              done < /tmp/${folder_name}.log
-              
-              if [ -n "$current_test" ]; then
-                if [ "$test_failed" = true ]; then
-                  echo "❌ $current_test" >> $GITHUB_STEP_SUMMARY
-                else
-                  echo "✅ $current_test" >> $GITHUB_STEP_SUMMARY
-                fi
-              fi
+            # Extract and show individual test results from detail file
+            if grep -q "^✅ ${folder_name}:" /tmp/test-detail.txt 2>/dev/null; then
+              # Extract test details for this folder from the detail file
+              sed -n "/^✅ ${folder_name}:/,/^$/p" /tmp/test-detail.txt | tail -n +2 | head -n -1 >> $GITHUB_STEP_SUMMARY
+            elif grep -q "^❌ ${folder_name}:" /tmp/test-detail.txt 2>/dev/null; then
+              # Extract test details for this folder from the detail file
+              sed -n "/^❌ ${folder_name}:/,/^$/p" /tmp/test-detail.txt | tail -n +2 | head -n -1 >> $GITHUB_STEP_SUMMARY
+            else
+              echo "No test details found for ${folder_name}" >> $GITHUB_STEP_SUMMARY
             fi
             
             echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
