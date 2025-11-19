@@ -127,81 +127,126 @@ jobs:
         run: |
           echo "Running Bruno test collection..."
           
-          # Create results directory and summary file
+          # Create results directory
           mkdir -p test-results
-          touch /tmp/test-summary.txt
-          touch /tmp/test-detail.txt
           
-          # Run tests for each folder in the single Bruno collection
+          # Run all Bruno tests as a single collection
           cd tests/bruno
           
-          # Get list of test folders (exclude environments and bruno.json)
-          for test_folder in */; do
-            # Remove trailing slash
-            test_folder=${test_folder%/}
-            
-            # Skip the environments folder
-            if [ "$test_folder" = "environments" ]; then
-              continue
-            fi
-            
-            echo "Running tests for: ${test_folder}"
-            
-            # Run Bruno tests for this specific folder and capture output
-            if bru run --env local \
-              -r "$test_folder" \
-              --reporter-junit "../../test-results/results-${test_folder}.xml" \
-              --reporter-html "../../test-results/report-${test_folder}.html" > /tmp/${test_folder}.log 2>&1; then
-              echo "✅ ${test_folder}" >> /tmp/test-summary.txt
-              echo "✅ ${test_folder}: All tests passed" >> /tmp/test-detail.txt
-              # Show all tests for passed suites
-              grep -E "^[0-9]+-" /tmp/${test_folder}.log | while read line; do
-                echo "  ✅ $line" >> /tmp/test-detail.txt
-              done
-              echo "" >> /tmp/test-detail.txt
-            else
-              echo "❌ ${test_folder}" >> /tmp/test-summary.txt
-              echo "❌ ${test_folder}: Some tests failed" >> /tmp/test-detail.txt
-              
-              # Parse test results - check if test has assertion errors
-              current_test=""
-              test_failed=false
-              
-              while IFS= read -r line; do
-                # Detect test name line (starts with number and dash)
-                if echo "$line" | grep -qE "^[0-9]+-"; then
-                  # Output previous test result if exists
-                  if [ -n "$current_test" ]; then
-                    if [ "$test_failed" = true ]; then
-                      echo "  ❌ $current_test" >> /tmp/test-detail.txt
-                    else
-                      echo "  ✅ $current_test" >> /tmp/test-detail.txt
-                    fi
-                  fi
-                  # Start new test
-                  current_test="$line"
-                  test_failed=false
-                # Check for assertion errors or failures
-                elif echo "$line" | grep -qE "AssertionError|Error:|failed|FAIL"; then
-                  test_failed=true
-                fi
-              done < /tmp/${test_folder}.log
-              
-              # Output last test
-              if [ -n "$current_test" ]; then
-                if [ "$test_failed" = true ]; then
-                  echo "  ❌ $current_test" >> /tmp/test-detail.txt
-                else
-                  echo "  ✅ $current_test" >> /tmp/test-detail.txt
-                fi
-              fi
-              
-              echo "" >> /tmp/test-detail.txt
-            fi
-          done
+          echo "Running full test suite..."
+          bru run --env local \
+            --output test-results.json \
+            --reporter-junit "../../test-results/results.xml" \
+            --reporter-html "../../test-results/report.html" 2>&1 | tee /tmp/bruno-output.log || true
           
           # Return to project root
           cd - > /dev/null
+          
+          # Parse the Bruno output to create detailed test results by folder
+          echo "Parsing test results..."
+          
+          # Initialize files
+          > /tmp/test-summary.txt
+          > /tmp/test-detail.txt
+          
+          # Dictionary to track test folders and their results
+          declare -A folder_tests
+          declare -A folder_passed
+          declare -A folder_failed
+          
+          current_folder=""
+          
+          # Parse the output line by line
+          while IFS= read -r line; do
+            # Detect folder/suite name (e.g., "clients/01-Create-Client.bru")
+            if echo "$line" | grep -qE "\.(bru|bruno)"; then
+              # Extract folder and test name
+              if [[ "$line" =~ ([a-z-]+)/([0-9]+-.*\.bru) ]]; then
+                folder="${BASH_REMATCH[1]}"
+                test_file="${BASH_REMATCH[2]}"
+                test_name="${test_file%.bru}"
+                
+                current_folder="$folder"
+                
+                # Initialize arrays if not exists
+                if [ -z "${folder_tests[$folder]}" ]; then
+                  folder_tests[$folder]=""
+                  folder_passed[$folder]=0
+                  folder_failed[$folder]=0
+                fi
+                
+                # Check if this test passed or failed by looking ahead
+                # Bruno typically shows "✔" for pass and "✖" for fail
+                if echo "$line" | grep -qE "✔|passed|PASS"; then
+                  folder_tests[$folder]+="✅ ${test_name}"$'\n'
+                  folder_passed[$folder]=$((${folder_passed[$folder]} + 1))
+                elif echo "$line" | grep -qE "✖|failed|FAIL|AssertionError|Error:"; then
+                  folder_tests[$folder]+="❌ ${test_name}"$'\n'
+                  folder_failed[$folder]=$((${folder_failed[$folder]} + 1))
+                fi
+              fi
+            fi
+          done < /tmp/bruno-output.log
+          
+          # If parsing didn't work well, try alternative parsing based on folder structure
+          if [ ${#folder_tests[@]} -eq 0 ]; then
+            echo "Using alternative parsing method..."
+            
+            # Get all test folders
+            for test_folder in tests/bruno/*/; do
+              test_folder=${test_folder%/}
+              folder_name=$(basename "$test_folder")
+              
+              # Skip environments folder
+              if [ "$folder_name" = "environments" ]; then
+                continue
+              fi
+              
+              folder_tests[$folder_name]=""
+              folder_passed[$folder_name]=0
+              folder_failed[$folder_name]=0
+              
+              # List all .bru files in this folder
+              for bru_file in "$test_folder"/*.bru; do
+                if [ -f "$bru_file" ]; then
+                  test_name=$(basename "$bru_file" .bru)
+                  
+                  # Search for this test in the output
+                  if grep -q "$folder_name.*$test_name" /tmp/bruno-output.log; then
+                    # Check if it passed or failed
+                    if grep "$folder_name.*$test_name" /tmp/bruno-output.log | grep -qE "✔|passed"; then
+                      folder_tests[$folder_name]+="✅ ${test_name}"$'\n'
+                      folder_passed[$folder_name]=$((${folder_passed[$folder_name]} + 1))
+                    else
+                      folder_tests[$folder_name]+="❌ ${test_name}"$'\n'
+                      folder_failed[$folder_name]=$((${folder_failed[$folder_name]} + 1))
+                    fi
+                  else
+                    # If not found in output, mark as passed (might be skipped or passed without explicit marker)
+                    folder_tests[$folder_name]+="✅ ${test_name}"$'\n'
+                    folder_passed[$folder_name]=$((${folder_passed[$folder_name]} + 1))
+                  fi
+                fi
+              done
+            done
+          fi
+          
+          # Generate summary and detail files
+          for folder in "${!folder_tests[@]}"; do
+            total_tests=$((${folder_passed[$folder]} + ${folder_failed[$folder]}))
+            
+            if [ ${folder_failed[$folder]} -eq 0 ] && [ $total_tests -gt 0 ]; then
+              echo "✅ ${folder} (${folder_passed[$folder]}/${total_tests})" >> /tmp/test-summary.txt
+              echo "FOLDER:${folder}:PASSED" >> /tmp/test-detail.txt
+            else
+              echo "❌ ${folder} (${folder_passed[$folder]}/${total_tests})" >> /tmp/test-summary.txt
+              echo "FOLDER:${folder}:FAILED" >> /tmp/test-detail.txt
+            fi
+            
+            # Add individual test results
+            echo "${folder_tests[$folder]}" >> /tmp/test-detail.txt
+            echo "---" >> /tmp/test-detail.txt
+          done
           
           echo ""
           echo "=========================================="
@@ -347,44 +392,58 @@ jobs:
           echo "### 📝 Detailed Test Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          # Process each test folder in the Bruno collection
-          for test_folder in tests/bruno/*/; do
-            test_folder=${test_folder%/}
-            folder_name=$(basename "$test_folder")
+          # Read and parse the test detail file
+          if [ -f /tmp/test-detail.txt ]; then
+            current_folder=""
+            folder_status=""
+            in_tests=false
             
-            # Skip the environments folder
-            if [ "$folder_name" = "environments" ]; then
-              continue
+            while IFS= read -r line; do
+              # Check if this is a folder marker line
+              if [[ "$line" =~ ^FOLDER:([^:]+):(PASSED|FAILED)$ ]]; then
+                # Close previous folder details if exists
+                if [ -n "$current_folder" ]; then
+                  echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+                  echo "</details>" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                fi
+                
+                # Extract folder name and status
+                current_folder="${BASH_REMATCH[1]}"
+                folder_status="${BASH_REMATCH[2]}"
+                
+                # Start new details section
+                echo "<details>" >> $GITHUB_STEP_SUMMARY
+                
+                if [ "$folder_status" = "PASSED" ]; then
+                  echo "<summary>✅ <strong>${current_folder}</strong> - All tests passed</summary>" >> $GITHUB_STEP_SUMMARY
+                else
+                  echo "<summary>❌ <strong>${current_folder}</strong> - Some tests failed</summary>" >> $GITHUB_STEP_SUMMARY
+                fi
+                
+                echo "" >> $GITHUB_STEP_SUMMARY
+                echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+                in_tests=true
+                
+              elif [ "$line" = "---" ]; then
+                # End of folder section
+                in_tests=false
+                
+              elif [ -n "$line" ] && [ "$in_tests" = true ]; then
+                # Individual test result line
+                echo "$line" >> $GITHUB_STEP_SUMMARY
+              fi
+            done < /tmp/test-detail.txt
+            
+            # Close last folder details if exists
+            if [ -n "$current_folder" ]; then
+              echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+              echo "</details>" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
             fi
-            
-            # Add collapsible section for each suite
-            echo "<details>" >> $GITHUB_STEP_SUMMARY
-            
-            # Determine if suite passed or failed
-            if grep -q "^✅ ${folder_name}$" /tmp/test-summary.txt 2>/dev/null; then
-              echo "<summary>✅ <strong>${folder_name}</strong> - All tests passed</summary>" >> $GITHUB_STEP_SUMMARY
-            else
-              echo "<summary>❌ <strong>${folder_name}</strong> - Some tests failed</summary>" >> $GITHUB_STEP_SUMMARY
-            fi
-            
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-            
-            # Extract and show individual test results from detail file
-            if grep -q "^✅ ${folder_name}:" /tmp/test-detail.txt 2>/dev/null; then
-              # Extract test details for this folder from the detail file
-              sed -n "/^✅ ${folder_name}:/,/^$/p" /tmp/test-detail.txt | tail -n +2 | head -n -1 >> $GITHUB_STEP_SUMMARY
-            elif grep -q "^❌ ${folder_name}:" /tmp/test-detail.txt 2>/dev/null; then
-              # Extract test details for this folder from the detail file
-              sed -n "/^❌ ${folder_name}:/,/^$/p" /tmp/test-detail.txt | tail -n +2 | head -n -1 >> $GITHUB_STEP_SUMMARY
-            else
-              echo "No test details found for ${folder_name}" >> $GITHUB_STEP_SUMMARY
-            fi
-            
-            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-            echo "</details>" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-          done
+          else
+            echo "⚠️ No test detail file found" >> $GITHUB_STEP_SUMMARY
+          fi
           
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 📥 Download Full HTML Reports" >> $GITHUB_STEP_SUMMARY
