@@ -1,4 +1,4 @@
-name: Docker Build and Push
+name: Build and Deploy to Docker Hub
 
 on:
   push:
@@ -6,8 +6,11 @@ on:
       - main
 
 jobs:
-  build-and-push:
+  deploy:
     runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write  # Required to push tags
     
     steps:
       - name: Checkout code
@@ -15,67 +18,105 @@ jobs:
         with:
           fetch-depth: 0  # Fetch all history and tags for version detection
       
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      
-      - name: Extract semantic version from git tags
+      - name: Determine semantic version bump
         id: version
         run: |
-          # Try to get exact tag on current commit
-          EXACT_TAG=$(git describe --tags --exact-match HEAD 2>/dev/null || echo "")
+          # Get the latest tag, or default to v0.0.0 if no tags exist
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "Latest tag: $LATEST_TAG"
           
-          if [ -n "$EXACT_TAG" ]; then
-            # Use exact tag
-            VERSION=$EXACT_TAG
+          # Remove 'v' prefix for version manipulation
+          CURRENT_VERSION=${LATEST_TAG#v}
+          
+          # Parse current version into components
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
+          
+          # Get commits since last tag
+          if [ "$LATEST_TAG" = "v0.0.0" ]; then
+            # No previous tags, get all commits
+            COMMITS=$(git log --pretty=format:"%s" HEAD)
           else
-            # Get nearest tag with commit distance, or use commit SHA if no tags exist
-            VERSION=$(git describe --tags --always HEAD 2>/dev/null || git rev-parse --short HEAD)
+            # Get commits since last tag
+            COMMITS=$(git log --pretty=format:"%s" ${LATEST_TAG}..HEAD)
           fi
           
-          # Remove 'v' prefix if present (e.g., v1.2.3 -> 1.2.3)
-          VERSION=${VERSION#v}
+          echo "Commits since last tag:"
+          echo "$COMMITS"
+          echo ""
           
-          # Clean up version string (remove commit hash suffixes if present)
-          # Handle formats like: 1.2.3-5-gabc1234 -> 1.2.3-5
-          # Or keep as-is if it's a clean version
-          if [[ $VERSION =~ ^([0-9]+\.[0-9]+\.[0-9]+)(.*)$ ]]; then
-            BASE_VERSION=${BASH_REMATCH[1]}
-            SUFFIX=${BASH_REMATCH[2]}
-            # If suffix exists and contains 'g', it's a commit hash - we'll use base version
-            if [[ $SUFFIX =~ g ]]; then
-              VERSION=$BASE_VERSION
-            fi
-          fi
+          # Determine bump type based on commit messages
+          # Priority: major > minor > patch
+          BUMP_TYPE="minor"  # Default
           
-          # Check if we have a valid semantic version (X.Y.Z format)
-          if [[ $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "has_version=true" >> $GITHUB_OUTPUT
-            echo "Extracted semantic version: $VERSION"
+          if echo "$COMMITS" | grep -qi "major"; then
+            BUMP_TYPE="major"
+            echo "🔴 MAJOR version bump detected (breaking changes)"
+          elif echo "$COMMITS" | grep -qi "fix"; then
+            BUMP_TYPE="patch"
+            echo "🟢 PATCH version bump detected (bug fix)"
           else
-            echo "has_version=false" >> $GITHUB_OUTPUT
-            echo "No semantic version tag found, will only push 'latest' tag"
+            echo "🔵 MINOR version bump (default - new features)"
           fi
           
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          # Calculate new version
+          case $BUMP_TYPE in
+            major)
+              NEW_MAJOR=$((MAJOR + 1))
+              NEW_MINOR=0
+              NEW_PATCH=0
+              ;;
+            minor)
+              NEW_MAJOR=$MAJOR
+              NEW_MINOR=$((MINOR + 1))
+              NEW_PATCH=0
+              ;;
+            patch)
+              NEW_MAJOR=$MAJOR
+              NEW_MINOR=$MINOR
+              NEW_PATCH=$((PATCH + 1))
+              ;;
+          esac
+          
+          NEW_VERSION="${NEW_MAJOR}.${NEW_MINOR}.${NEW_PATCH}"
+          NEW_TAG="v${NEW_VERSION}"
+          
+          echo ""
+          echo "Version: $CURRENT_VERSION → $NEW_VERSION"
+          echo "Tag: $LATEST_TAG → $NEW_TAG"
+          echo ""
+          
+          # Export for later steps
+          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "tag=$NEW_TAG" >> $GITHUB_OUTPUT
+          echo "bump_type=$BUMP_TYPE" >> $GITHUB_OUTPUT
       
-      - name: Prepare Docker tags
-        id: tags
+      - name: Create and push git tag
+        env:
+          NEW_TAG: ${{ steps.version.outputs.tag }}
+          NEW_VERSION: ${{ steps.version.outputs.version }}
+          BUMP_TYPE: ${{ steps.version.outputs.bump_type }}
         run: |
-          # Always include latest tag
-          echo "${{ vars.DOCKER_HUB_NAME }}:latest" > /tmp/tags.txt
+          # Configure git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           
-          # Add version tag if we have a valid semantic version
-          if [ "${{ steps.version.outputs.has_version }}" = "true" ]; then
-            echo "${{ vars.DOCKER_HUB_NAME }}:${{ steps.version.outputs.version }}" >> /tmp/tags.txt
-          fi
+          # Create annotated tag with release info
+          git tag -a "$NEW_TAG" -m "Release $NEW_TAG
+
+Automated release via CI/CD pipeline
+Bump type: $BUMP_TYPE
+
+Commits in this release:
+$(git log --pretty=format:'- %s (%h)' $(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo '')..HEAD)
+"
           
-          # Output tags as multiline string for GitHub Actions
-          echo "tags<<EOF" >> $GITHUB_OUTPUT
-          cat /tmp/tags.txt >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          # Push the tag
+          git push origin "$NEW_TAG"
           
-          echo "Prepared tags:"
-          cat /tmp/tags.txt
+          echo "✅ Created and pushed tag: $NEW_TAG"
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
       
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -88,7 +129,34 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ steps.tags.outputs.tags }}
+          tags: |
+            ${{ vars.DOCKER_HUB_NAME }}:latest
+            ${{ vars.DOCKER_HUB_NAME }}:${{ steps.version.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
+      
+      - name: Create GitHub Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          release_name: Release ${{ steps.version.outputs.tag }}
+          body: |
+            ## 🚀 Release ${{ steps.version.outputs.tag }}
+            
+            **Bump Type:** ${{ steps.version.outputs.bump_type }}
+            
+            ### 📦 Docker Images
+            - `${{ vars.DOCKER_HUB_NAME }}:${{ steps.version.outputs.version }}`
+            - `${{ vars.DOCKER_HUB_NAME }}:latest`
+            
+            ### 📝 Changes
+            See commit history for detailed changes.
+            
+            ### 🐳 Pull the image:
+            ```bash
+            docker pull ${{ vars.DOCKER_HUB_NAME }}:${{ steps.version.outputs.version }}
+            ```
+          draft: false
+          prerelease: false
