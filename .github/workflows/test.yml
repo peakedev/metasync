@@ -125,79 +125,83 @@ jobs:
       
       - name: Run Bruno tests
         run: |
-          echo "Discovering Bruno test collections..."
+          echo "Running Bruno test collection..."
           
           # Create results directory and summary file
           mkdir -p test-results
           touch /tmp/test-summary.txt
+          touch /tmp/test-detail.txt
           
-          # Find all directories with bruno.json (indicates a Bruno collection)
-          for collection_dir in tests/bruno/*/; do
+          # Run tests for each folder in the single Bruno collection
+          cd tests/bruno
+          
+          # Get list of test folders (exclude environments and bruno.json)
+          for test_folder in */; do
             # Remove trailing slash
-            collection_dir=${collection_dir%/}
+            test_folder=${test_folder%/}
             
-            # Get collection name
-            collection_name=$(basename "$collection_dir")
+            # Skip the environments folder
+            if [ "$test_folder" = "environments" ]; then
+              continue
+            fi
             
-            # Check if bruno.json exists (confirms it's a collection)
-            if [ -f "$collection_dir/bruno.json" ]; then
-              cd "$collection_dir"
+            echo "Running tests for: ${test_folder}"
+            
+            # Run Bruno tests for this specific folder and capture output
+            if bru run --env local \
+              -r "$test_folder" \
+              --reporter-junit "../../test-results/results-${test_folder}.xml" \
+              --reporter-html "../../test-results/report-${test_folder}.html" > /tmp/${test_folder}.log 2>&1; then
+              echo "✅ ${test_folder}" >> /tmp/test-summary.txt
+              echo "✅ ${test_folder}: All tests passed" >> /tmp/test-detail.txt
+              # Still show all tests for passed suites
+              grep -E "^[0-9]+-.*\(" /tmp/${test_folder}.log | while read line; do
+                echo "  ✅ $line" >> /tmp/test-detail.txt
+              done
+              echo "" >> /tmp/test-detail.txt
+            else
+              echo "❌ ${test_folder}" >> /tmp/test-summary.txt
+              echo "❌ ${test_folder}: Some tests failed" >> /tmp/test-detail.txt
               
-              # Run Bruno tests and capture output
-              if bru run --env local \
-                --reporter-junit "../../../test-results/results-${collection_name}.xml" \
-                --reporter-html "../../../test-results/report-${collection_name}.html" > /tmp/${collection_name}.log 2>&1; then
-                echo "✅ ${collection_name}" >> /tmp/test-summary.txt
-                echo "✅ ${collection_name}: All tests passed" >> /tmp/test-detail.txt
-                # Still show all tests for passed suites
-                grep -E "^[0-9]+-.*\(" /tmp/${collection_name}.log | while read line; do
-                  echo "  ✅ $line" >> /tmp/test-detail.txt
-                done
-                echo "" >> /tmp/test-detail.txt
-              else
-                echo "❌ ${collection_name}" >> /tmp/test-summary.txt
-                echo "❌ ${collection_name}: Some tests failed" >> /tmp/test-detail.txt
-                
-                # Parse test results - check if test has assertion errors
-                current_test=""
-                test_failed=false
-                
-                while IFS= read -r line; do
-                  # Detect test name line
-                  if echo "$line" | grep -qE "^[0-9]+-.*\("; then
-                    # Output previous test result if exists
-                    if [ -n "$current_test" ]; then
-                      if [ "$test_failed" = true ]; then
-                        echo "  ❌ $current_test" >> /tmp/test-detail.txt
-                      else
-                        echo "  ✅ $current_test" >> /tmp/test-detail.txt
-                      fi
+              # Parse test results - check if test has assertion errors
+              current_test=""
+              test_failed=false
+              
+              while IFS= read -r line; do
+                # Detect test name line
+                if echo "$line" | grep -qE "^[0-9]+-.*\("; then
+                  # Output previous test result if exists
+                  if [ -n "$current_test" ]; then
+                    if [ "$test_failed" = true ]; then
+                      echo "  ❌ $current_test" >> /tmp/test-detail.txt
+                    else
+                      echo "  ✅ $current_test" >> /tmp/test-detail.txt
                     fi
-                    # Start new test
-                    current_test="$line"
-                    test_failed=false
-                  # Check for assertion errors
-                  elif echo "$line" | grep -qE "AssertionError|Error:"; then
-                    test_failed=true
                   fi
-                done < /tmp/${collection_name}.log
-                
-                # Output last test
-                if [ -n "$current_test" ]; then
-                  if [ "$test_failed" = true ]; then
-                    echo "  ❌ $current_test" >> /tmp/test-detail.txt
-                  else
-                    echo "  ✅ $current_test" >> /tmp/test-detail.txt
-                  fi
+                  # Start new test
+                  current_test="$line"
+                  test_failed=false
+                # Check for assertion errors
+                elif echo "$line" | grep -qE "AssertionError|Error:"; then
+                  test_failed=true
                 fi
-                
-                echo "" >> /tmp/test-detail.txt
+              done < /tmp/${test_folder}.log
+              
+              # Output last test
+              if [ -n "$current_test" ]; then
+                if [ "$test_failed" = true ]; then
+                  echo "  ❌ $current_test" >> /tmp/test-detail.txt
+                else
+                  echo "  ✅ $current_test" >> /tmp/test-detail.txt
+                fi
               fi
               
-              # Return to project root
-              cd - > /dev/null
+              echo "" >> /tmp/test-detail.txt
             fi
           done
+          
+          # Return to project root
+          cd - > /dev/null
           
           echo ""
           echo "=========================================="
@@ -343,59 +347,62 @@ jobs:
           echo "### 📝 Detailed Test Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          # Process each test suite
-          for collection_dir in tests/bruno/*/; do
-            collection_dir=${collection_dir%/}
-            collection_name=$(basename "$collection_dir")
+          # Process each test folder in the Bruno collection
+          for test_folder in tests/bruno/*/; do
+            test_folder=${test_folder%/}
+            folder_name=$(basename "$test_folder")
             
-            if [ -f "$collection_dir/bruno.json" ]; then
-              # Add collapsible section for each suite
-              echo "<details>" >> $GITHUB_STEP_SUMMARY
+            # Skip the environments folder
+            if [ "$folder_name" = "environments" ]; then
+              continue
+            fi
+            
+            # Add collapsible section for each suite
+            echo "<details>" >> $GITHUB_STEP_SUMMARY
+            
+            # Determine if suite passed or failed
+            if grep -q "^✅ ${folder_name}$" /tmp/test-summary.txt 2>/dev/null; then
+              echo "<summary>✅ <strong>${folder_name}</strong> - All tests passed</summary>" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "<summary>❌ <strong>${folder_name}</strong> - Some tests failed</summary>" >> $GITHUB_STEP_SUMMARY
+            fi
+            
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            
+            # Extract and show individual test results based on actual pass/fail
+            if [ -f /tmp/${folder_name}.log ]; then
+              current_test=""
+              test_failed=false
               
-              # Determine if suite passed or failed
-              if grep -q "^✅ ${collection_name}$" /tmp/test-summary.txt 2>/dev/null; then
-                echo "<summary>✅ <strong>${collection_name}</strong> - All tests passed</summary>" >> $GITHUB_STEP_SUMMARY
-              else
-                echo "<summary>❌ <strong>${collection_name}</strong> - Some tests failed</summary>" >> $GITHUB_STEP_SUMMARY
-              fi
-              
-              echo "" >> $GITHUB_STEP_SUMMARY
-              echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-              
-              # Extract and show individual test results based on actual pass/fail
-              if [ -f /tmp/${collection_name}.log ]; then
-                current_test=""
-                test_failed=false
-                
-                while IFS= read -r line; do
-                  if echo "$line" | grep -qE "^[0-9]+-.*\("; then
-                    if [ -n "$current_test" ]; then
-                      if [ "$test_failed" = true ]; then
-                        echo "❌ $current_test" >> $GITHUB_STEP_SUMMARY
-                      else
-                        echo "✅ $current_test" >> $GITHUB_STEP_SUMMARY
-                      fi
+              while IFS= read -r line; do
+                if echo "$line" | grep -qE "^[0-9]+-.*\("; then
+                  if [ -n "$current_test" ]; then
+                    if [ "$test_failed" = true ]; then
+                      echo "❌ $current_test" >> $GITHUB_STEP_SUMMARY
+                    else
+                      echo "✅ $current_test" >> $GITHUB_STEP_SUMMARY
                     fi
-                    current_test="$line"
-                    test_failed=false
-                  elif echo "$line" | grep -qE "AssertionError|Error:"; then
-                    test_failed=true
                   fi
-                done < /tmp/${collection_name}.log
-                
-                if [ -n "$current_test" ]; then
-                  if [ "$test_failed" = true ]; then
-                    echo "❌ $current_test" >> $GITHUB_STEP_SUMMARY
-                  else
-                    echo "✅ $current_test" >> $GITHUB_STEP_SUMMARY
-                  fi
+                  current_test="$line"
+                  test_failed=false
+                elif echo "$line" | grep -qE "AssertionError|Error:"; then
+                  test_failed=true
+                fi
+              done < /tmp/${folder_name}.log
+              
+              if [ -n "$current_test" ]; then
+                if [ "$test_failed" = true ]; then
+                  echo "❌ $current_test" >> $GITHUB_STEP_SUMMARY
+                else
+                  echo "✅ $current_test" >> $GITHUB_STEP_SUMMARY
                 fi
               fi
-              
-              echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-              echo "</details>" >> $GITHUB_STEP_SUMMARY
-              echo "" >> $GITHUB_STEP_SUMMARY
             fi
+            
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "</details>" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
           done
           
           echo "" >> $GITHUB_STEP_SUMMARY
