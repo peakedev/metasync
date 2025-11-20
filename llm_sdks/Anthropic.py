@@ -5,7 +5,7 @@ Implementation for Anthropic's Claude API using the official Anthropic
 Python SDK.
 """
 
-from typing import Tuple, Dict, Any
+from typing import Tuple, Dict, Any, Generator
 from anthropic import Anthropic
 from urllib.parse import urlparse
 
@@ -134,3 +134,77 @@ class AnthropicSDK(BaseLLMSDK):
             completion_tokens,
             total_tokens,
         )
+
+    def stream(
+        self,
+        config: Dict[str, Any],
+        system_prompt: str,
+        user_content: str,
+        temperature: float,
+        max_tokens: int,
+        api_key: str = None
+    ) -> Generator[str, None, Tuple[int, int, int]]:
+        """
+        Execute streaming completion using Anthropic SDK.
+
+        Uses streaming to deliver chunks as they arrive from the API.
+        Anthropic separates system prompts from user messages.
+
+        Args:
+            config: Model configuration with endpoint and deployment
+            system_prompt: System prompt (sent separately in Anthropic)
+            user_content: User message content
+            temperature: Sampling temperature
+            max_tokens: Maximum tokens to generate
+            api_key: Anthropic API key
+
+        Yields:
+            Text chunks as they arrive from the API
+
+        Returns:
+            Tuple of (prompt_tokens, completion_tokens, total_tokens)
+        """
+        # Validate config
+        self.validate_config(config)
+
+        endpoint = config.get('endpoint')
+        deployment = config.get('deployment')
+
+        # Create client
+        client = Anthropic(api_key=api_key, base_url=endpoint)
+
+        # Anthropic separates system and messages
+        # Keep system in system_prompt and send user content as a user message
+        anthro_messages = [{"role": "user", "content": user_content or ""}]
+
+        # Stream the response
+        prompt_tokens = 0
+        completion_tokens = 0
+        total_tokens = 0
+
+        try:
+            with client.messages.stream(
+                model=deployment,
+                system=system_prompt or "",
+                messages=anthro_messages,
+                temperature=temperature,
+                max_tokens=max_tokens
+            ) as stream:
+                for text in stream.text_stream:
+                    yield text
+                final_msg = stream.get_final_message()
+        except Exception as e:
+            # Re-raise with context
+            raise RuntimeError(f"Anthropic API request failed: {e}")
+
+        # Extract usage information
+        usage = getattr(final_msg, "usage", None)
+        prompt_tokens = (
+            getattr(usage, "input_tokens", None) if usage else None
+        )
+        completion_tokens = (
+            getattr(usage, "output_tokens", None) if usage else None
+        )
+        total_tokens = (prompt_tokens or 0) + (completion_tokens or 0)
+
+        return (prompt_tokens, completion_tokens, total_tokens)

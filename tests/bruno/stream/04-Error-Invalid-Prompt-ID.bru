@@ -1,0 +1,42 @@
+meta {
+  name: Error - Invalid Prompt ID
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/stream
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  client_id: {{clientId}}
+  client_api_key: {{clientApiKey}}
+}
+
+body:json {
+  {
+    "userPrompt": "Test prompt",
+    "additionalPrompts": ["invalid-prompt-id-123"],
+    "model": "gptest",
+    "temperature": 0.7
+  }
+}
+
+tests {
+  test("Status code is 400", function() {
+    expect(res.getStatus()).to.equal(400);
+  });
+  
+  test("Response is an object", function() {
+    expect(res.getBody()).to.be.an('object');
+  });
+  
+  test("Error detail mentions prompt not found", function() {
+    expect(res.getBody().detail).to.include('Prompt');
+    expect(res.getBody().detail).to.include('not found');
+  });
+}
+

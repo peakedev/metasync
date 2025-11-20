@@ -22,7 +22,8 @@ from api.routers import (
     jobs,
     workers,
     prompt_flows,
-    models
+    models,
+    stream
 )
 from api.services.worker_manager import get_worker_manager
 
@@ -158,6 +159,7 @@ app.include_router(
     prompt_flows.router, prefix="/prompt-flows", tags=["prompt-flows"]
 )
 app.include_router(models.router, prefix="/models", tags=["models"])
+app.include_router(stream.router, prefix="/stream", tags=["stream"])
 
 # Protected documentation endpoints
 @app.get("/docs", dependencies=[Depends(docs_auth_dependency)])

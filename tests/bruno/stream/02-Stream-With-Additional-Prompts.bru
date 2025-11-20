@@ -1,0 +1,44 @@
+meta {
+  name: Stream With Additional Prompts
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/stream
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  client_id: {{clientId}}
+  client_api_key: {{clientApiKey}}
+}
+
+body:json {
+  {
+    "userPrompt": "Process this request",
+    "additionalPrompts": ["{{promptId1}}", "{{promptId2}}"],
+    "model": "gptest",
+    "temperature": 0.5
+  }
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Response has X-Stream-Id header", function() {
+    const streamId = res.getHeader('x-stream-id') || res.getHeader('X-Stream-Id');
+    expect(streamId).to.be.a('string');
+    expect(streamId.length).to.be.greaterThan(0);
+  });
+  
+  test("Response body is text", function() {
+    expect(res.getBody()).to.be.a('string');
+    expect(res.getBody().length).to.be.greaterThan(0);
+  });
+}
+

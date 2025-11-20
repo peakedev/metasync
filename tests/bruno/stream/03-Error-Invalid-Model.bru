@@ -1,0 +1,41 @@
+meta {
+  name: Error - Invalid Model
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/stream
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  client_id: {{clientId}}
+  client_api_key: {{clientApiKey}}
+}
+
+body:json {
+  {
+    "userPrompt": "Test prompt",
+    "model": "nonexistent-model",
+    "temperature": 0.7
+  }
+}
+
+tests {
+  test("Status code is 400", function() {
+    expect(res.getStatus()).to.equal(400);
+  });
+  
+  test("Response is an object", function() {
+    expect(res.getBody()).to.be.an('object');
+  });
+  
+  test("Error detail mentions model not found", function() {
+    expect(res.getBody().detail).to.include('Model');
+    expect(res.getBody().detail).to.include('not found');
+  });
+}
+

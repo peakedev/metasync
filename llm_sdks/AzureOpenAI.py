@@ -4,7 +4,7 @@ Azure OpenAI SDK
 Implementation for Azure OpenAI API using the official OpenAI Python SDK.
 """
 
-from typing import Tuple, Dict, Any
+from typing import Tuple, Dict, Any, Generator
 from openai import AzureOpenAI
 
 from llm_sdks.base_sdk import BaseLLMSDK
@@ -109,3 +109,76 @@ class AzureOpenAISDK(BaseLLMSDK):
             completion_tokens,
             total_tokens,
         )
+
+    def stream(
+        self,
+        config: Dict[str, Any],
+        system_prompt: str,
+        user_content: str,
+        temperature: float,
+        max_tokens: int,
+        api_key: str = None
+    ) -> Generator[str, None, Tuple[int, int, int]]:
+        """
+        Execute streaming completion using Azure OpenAI SDK.
+
+        Args:
+            config: Model configuration with endpoint, apiVersion,
+                    and deployment
+            system_prompt: System prompt to send
+            user_content: User content to send
+            temperature: Sampling temperature
+            max_tokens: Maximum tokens to generate
+            api_key: Azure OpenAI API key
+
+        Yields:
+            Text chunks as they arrive from the API
+
+        Returns:
+            Tuple of (prompt_tokens, completion_tokens, total_tokens)
+        """
+        # Validate config
+        self.validate_config(config)
+
+        endpoint = config.get('endpoint')
+        api_version = config.get('apiVersion')
+        deployment = config.get('deployment')
+
+        # Combine system prompt and user content into a single message
+        content = (system_prompt or "") + (user_content or "")
+        messages = [{"role": "system", "content": content}]
+
+        # Create client
+        client = AzureOpenAI(
+            api_version=api_version,
+            azure_endpoint=endpoint,
+            api_key=api_key,
+        )
+
+        # Make the streaming API call
+        response = client.chat.completions.create(
+            model=deployment,
+            messages=messages,
+            temperature=temperature,
+            max_completion_tokens=max_tokens,
+            stream=True,
+        )
+
+        # Stream the response chunks
+        prompt_tokens = 0
+        completion_tokens = 0
+        total_tokens = 0
+
+        for chunk in response:
+            if chunk.choices and len(chunk.choices) > 0:
+                delta = chunk.choices[0].delta
+                if delta.content:
+                    yield delta.content
+            
+            # Extract usage from the final chunk if available
+            if hasattr(chunk, 'usage') and chunk.usage:
+                prompt_tokens = getattr(chunk.usage, "prompt_tokens", 0)
+                completion_tokens = getattr(chunk.usage, "completion_tokens", 0)
+                total_tokens = getattr(chunk.usage, "total_tokens", 0)
+
+        return (prompt_tokens, completion_tokens, total_tokens)

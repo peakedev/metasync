@@ -5,7 +5,7 @@ Defines the abstract interface that all LLM SDK implementations must follow.
 """
 
 from abc import ABC, abstractmethod
-from typing import Tuple, Dict, Any
+from typing import Tuple, Dict, Any, Generator
 
 
 class BaseLLMSDK(ABC):
@@ -81,6 +81,40 @@ class BaseLLMSDK(ABC):
             - prompt_tokens: Number of tokens in the prompt
             - completion_tokens: Number of tokens in the completion
             - total_tokens: Total tokens used
+
+        Raises:
+            ValueError: If configuration is invalid
+            RuntimeError: If the API call fails or returns empty response
+        """
+        pass
+
+    @abstractmethod
+    def stream(
+        self,
+        config: Dict[str, Any],
+        system_prompt: str,
+        user_content: str,
+        temperature: float,
+        max_tokens: int,
+        api_key: str = None
+    ) -> Generator[str, None, Tuple[int, int, int]]:
+        """
+        Execute a streaming chat completion request.
+
+        Args:
+            config: Model configuration dictionary
+            system_prompt: System prompt/instruction for the model
+            user_content: User message content
+            temperature: Sampling temperature (already clamped to min/max)
+            max_tokens: Maximum tokens to generate
+            api_key: API key for authentication (None for test SDK)
+
+        Yields:
+            Text chunks as they arrive from the API
+
+        Returns:
+            After all chunks are yielded, returns a tuple of:
+            (prompt_tokens, completion_tokens, total_tokens)
 
         Raises:
             ValueError: If configuration is invalid
