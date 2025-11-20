@@ -150,8 +150,7 @@ jobs:
             # Run Bruno tests for this specific folder and capture output
             if bru run --env local \
               -r "$test_folder" \
-              --junit "../../test-results/results-${test_folder}.xml" \
-              --html "../../test-results/report-${test_folder}.html" > /tmp/${test_folder}.log 2>&1; then
+              --output ../../test-results/results-${test_folder}.json 2>&1 | tee /tmp/${test_folder}.log; then
               
               echo ""
               echo "=== DEBUG: First 20 lines of ${test_folder}.log ==="
@@ -161,9 +160,9 @@ jobs:
               
               echo "✅ ${test_folder}" >> /tmp/test-summary.txt
               echo "✅ ${test_folder}: All tests passed" >> /tmp/test-detail.txt
-              # Still show all tests for passed suites
-              grep -E "^[0-9]+-.*\(" /tmp/${test_folder}.log | while read line; do
-                echo "  ✅ $line" >> /tmp/test-detail.txt
+              # Show all tests for passed suites - look for .bru files
+              grep -oE "[0-9]+-[^[:space:]]+\.bru" /tmp/${test_folder}.log | sed 's/\.bru$//' | while read test_name; do
+                echo "  ✅ $test_name" >> /tmp/test-detail.txt
               done
               echo "" >> /tmp/test-detail.txt
             else
@@ -181,8 +180,8 @@ jobs:
               test_failed=false
               
               while IFS= read -r line; do
-                # Detect test name line
-                if echo "$line" | grep -qE "^[0-9]+-.*\("; then
+                # Look for test file names (*.bru)
+                if [[ "$line" =~ ([0-9]+-[^[:space:]]+\.bru) ]]; then
                   # Output previous test result if exists
                   if [ -n "$current_test" ]; then
                     if [ "$test_failed" = true ]; then
@@ -191,11 +190,11 @@ jobs:
                       echo "  ✅ $current_test" >> /tmp/test-detail.txt
                     fi
                   fi
-                  # Start new test
-                  current_test="$line"
+                  # Start new test (remove .bru extension)
+                  current_test="${BASH_REMATCH[1]%.bru}"
                   test_failed=false
                 # Check for assertion errors
-                elif echo "$line" | grep -qE "AssertionError|Error:"; then
+                elif echo "$line" | grep -qE "AssertionError|Error:|failed|✖"; then
                   test_failed=true
                 fi
               done < /tmp/${test_folder}.log
@@ -215,6 +214,83 @@ jobs:
           
           # Return to project root
           cd - > /dev/null
+          
+          # Generate JUnit XML files from the test results
+          echo "Generating JUnit XML files..."
+          for test_folder in tests/bruno/*/; do
+            test_folder=${test_folder%/}
+            folder_name=$(basename "$test_folder")
+            
+            # Skip environments folder
+            if [ "$folder_name" = "environments" ]; then
+              continue
+            fi
+            
+            if [ -f /tmp/${folder_name}.log ]; then
+              # Count tests and parse results
+              total_tests=0
+              failed_tests=0
+              passed_tests=0
+              
+              # Start XML file
+              echo '<?xml version="1.0" encoding="UTF-8"?>' > test-results/results-${folder_name}.xml
+              echo "<testsuite name=\"${folder_name}\" tests=\"0\" failures=\"0\" errors=\"0\" time=\"0\">" >> test-results/results-${folder_name}.xml
+              
+              # Parse log file for test results
+              current_test=""
+              test_failed=false
+              
+              while IFS= read -r line; do
+                # Look for test file names (*.bru)
+                if [[ "$line" =~ ([0-9]+-[^[:space:]]+\.bru) ]]; then
+                  # Save previous test if exists
+                  if [ -n "$current_test" ]; then
+                    if [ "$test_failed" = true ]; then
+                      echo "  <testcase name=\"${current_test}\" classname=\"${folder_name}\" time=\"0\">" >> test-results/results-${folder_name}.xml
+                      echo "    <failure message=\"Test failed\">Assertion error</failure>" >> test-results/results-${folder_name}.xml
+                      echo "  </testcase>" >> test-results/results-${folder_name}.xml
+                      failed_tests=$((failed_tests + 1))
+                    else
+                      echo "  <testcase name=\"${current_test}\" classname=\"${folder_name}\" time=\"0\"/>" >> test-results/results-${folder_name}.xml
+                      passed_tests=$((passed_tests + 1))
+                    fi
+                    total_tests=$((total_tests + 1))
+                  fi
+                  
+                  # Start new test
+                  current_test="${BASH_REMATCH[1]%.bru}"
+                  test_failed=false
+                  
+                # Check for errors/failures
+                elif echo "$line" | grep -qE "AssertionError|Error:|failed|✖"; then
+                  test_failed=true
+                fi
+              done < /tmp/${folder_name}.log
+              
+              # Save last test
+              if [ -n "$current_test" ]; then
+                if [ "$test_failed" = true ]; then
+                  echo "  <testcase name=\"${current_test}\" classname=\"${folder_name}\" time=\"0\">" >> test-results/results-${folder_name}.xml
+                  echo "    <failure message=\"Test failed\">Assertion error</failure>" >> test-results/results-${folder_name}.xml
+                  echo "  </testcase>" >> test-results/results-${folder_name}.xml
+                  failed_tests=$((failed_tests + 1))
+                else
+                  echo "  <testcase name=\"${current_test}\" classname=\"${folder_name}\" time=\"0\"/>" >> test-results/results-${folder_name}.xml
+                  passed_tests=$((passed_tests + 1))
+                fi
+                total_tests=$((total_tests + 1))
+              fi
+              
+              # Close testsuite with correct counts
+              echo "</testsuite>" >> test-results/results-${folder_name}.xml
+              
+              # Update the counts in the file
+              sed -i "s/tests=\"0\"/tests=\"${total_tests}\"/" test-results/results-${folder_name}.xml
+              sed -i "s/failures=\"0\"/failures=\"${failed_tests}\"/" test-results/results-${folder_name}.xml
+              
+              echo "Generated XML for ${folder_name}: ${passed_tests}/${total_tests} passed"
+            fi
+          done
           
           echo ""
           echo "=========================================="
@@ -305,14 +381,14 @@ jobs:
             <div class="test-suites">
           EOF
           
-          # Add links to each test suite report
-          for report in test-results/report-*.html; do
-            if [ -f "$report" ]; then
-              suite_name=$(basename "$report" .html | sed 's/report-//')
+          # Add links to each test suite JSON result
+          for result_file in test-results/results-*.json; do
+            if [ -f "$result_file" ]; then
+              suite_name=$(basename "$result_file" .json | sed 's/results-//')
               cat >> test-results/index.html << EOF
               <div class="test-suite">
                 <h2>📋 ${suite_name}</h2>
-                <a href="$(basename "$report")">View Test Report →</a>
+                <a href="$(basename "$result_file")">View JSON Results →</a>
               </div>
           EOF
             fi
@@ -389,7 +465,8 @@ jobs:
               test_failed=false
               
               while IFS= read -r line; do
-                if echo "$line" | grep -qE "^[0-9]+-.*\("; then
+                # Look for test file names (*.bru)
+                if [[ "$line" =~ ([0-9]+-[^[:space:]]+\.bru) ]]; then
                   if [ -n "$current_test" ]; then
                     if [ "$test_failed" = true ]; then
                       echo "❌ $current_test" >> $GITHUB_STEP_SUMMARY
@@ -397,9 +474,10 @@ jobs:
                       echo "✅ $current_test" >> $GITHUB_STEP_SUMMARY
                     fi
                   fi
-                  current_test="$line"
+                  # Start new test (remove .bru extension)
+                  current_test="${BASH_REMATCH[1]%.bru}"
                   test_failed=false
-                elif echo "$line" | grep -qE "AssertionError|Error:"; then
+                elif echo "$line" | grep -qE "AssertionError|Error:|failed|✖"; then
                   test_failed=true
                 fi
               done < /tmp/${folder_name}.log
