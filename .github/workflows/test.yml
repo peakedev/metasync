@@ -160,8 +160,8 @@ jobs:
               
               echo "✅ ${test_folder}" >> /tmp/test-summary.txt
               echo "✅ ${test_folder}: All tests passed" >> /tmp/test-detail.txt
-              # Show all tests for passed suites - look for .bru files
-              grep -oE "[0-9]+-[^[:space:]]+\.bru" /tmp/${test_folder}.log | sed 's/\.bru$//' | while read test_name; do
+              # Show all tests for passed suites - look for test names like "folder/01-Test-Name (status)"
+              grep -oE "${test_folder}/[0-9]+-[^[:space:]]+" /tmp/${test_folder}.log | sed "s|^${test_folder}/||" | while read test_name; do
                 echo "  ✅ $test_name" >> /tmp/test-detail.txt
               done
               echo "" >> /tmp/test-detail.txt
@@ -180,8 +180,8 @@ jobs:
               test_failed=false
               
               while IFS= read -r line; do
-                # Look for test file names (*.bru)
-                if [[ "$line" =~ ([0-9]+-[^[:space:]]+\.bru) ]]; then
+                # Look for test file names like "folder/01-Test-Name (status)"
+                if [[ "$line" =~ ${test_folder}/([0-9]+-[^[:space:]]+)[[:space:]]\( ]]; then
                   # Output previous test result if exists
                   if [ -n "$current_test" ]; then
                     if [ "$test_failed" = true ]; then
@@ -190,11 +190,11 @@ jobs:
                       echo "  ✅ $current_test" >> /tmp/test-detail.txt
                     fi
                   fi
-                  # Start new test (remove .bru extension)
-                  current_test="${BASH_REMATCH[1]%.bru}"
+                  # Start new test
+                  current_test="${BASH_REMATCH[1]}"
                   test_failed=false
-                # Check for assertion errors
-                elif echo "$line" | grep -qE "AssertionError|Error:|failed|✖"; then
+                # Check for assertion errors (✖ symbol indicates failure)
+                elif echo "$line" | grep -qE "✖"; then
                   test_failed=true
                 fi
               done < /tmp/${test_folder}.log
@@ -241,8 +241,8 @@ jobs:
               test_failed=false
               
               while IFS= read -r line; do
-                # Look for test file names (*.bru)
-                if [[ "$line" =~ ([0-9]+-[^[:space:]]+\.bru) ]]; then
+                # Look for test file names like "folder/01-Test-Name (status)"
+                if [[ "$line" =~ ${folder_name}/([0-9]+-[^[:space:]]+)[[:space:]]\( ]]; then
                   # Save previous test if exists
                   if [ -n "$current_test" ]; then
                     if [ "$test_failed" = true ]; then
@@ -258,11 +258,11 @@ jobs:
                   fi
                   
                   # Start new test
-                  current_test="${BASH_REMATCH[1]%.bru}"
+                  current_test="${BASH_REMATCH[1]}"
                   test_failed=false
                   
                 # Check for errors/failures
-                elif echo "$line" | grep -qE "AssertionError|Error:|failed|✖"; then
+                elif echo "$line" | grep -qE "✖"; then
                   test_failed=true
                 fi
               done < /tmp/${folder_name}.log
@@ -465,8 +465,8 @@ jobs:
               test_failed=false
               
               while IFS= read -r line; do
-                # Look for test file names (*.bru)
-                if [[ "$line" =~ ([0-9]+-[^[:space:]]+\.bru) ]]; then
+                # Look for test file names like "folder/01-Test-Name (status)"
+                if [[ "$line" =~ ${folder_name}/([0-9]+-[^[:space:]]+)[[:space:]]\( ]]; then
                   if [ -n "$current_test" ]; then
                     if [ "$test_failed" = true ]; then
                       echo "❌ $current_test" >> $GITHUB_STEP_SUMMARY
@@ -474,10 +474,10 @@ jobs:
                       echo "✅ $current_test" >> $GITHUB_STEP_SUMMARY
                     fi
                   fi
-                  # Start new test (remove .bru extension)
-                  current_test="${BASH_REMATCH[1]%.bru}"
+                  # Start new test
+                  current_test="${BASH_REMATCH[1]}"
                   test_failed=false
-                elif echo "$line" | grep -qE "AssertionError|Error:|failed|✖"; then
+                elif echo "$line" | grep -qE "✖"; then
                   test_failed=true
                 fi
               done < /tmp/${folder_name}.log
