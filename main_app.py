@@ -4,6 +4,8 @@ Main FastAPI application
 """
 
 import uuid
+import asyncio
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Depends
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -29,6 +31,62 @@ configure_logging()
 logger = get_logger("api.main")
 request_logger = RequestLogger()
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan event handler for startup and shutdown."""
+    # Startup
+    try:
+        print("\n" + "="*60)
+        print("🚀 MetaSync API Starting...")
+        print("="*60)
+        manager = get_worker_manager()
+        manager.load_workers_from_db()
+        print("="*60)
+        print("✅ MetaSync API Ready")
+        print("="*60 + "\n")
+    except Exception as e:
+        print(f"\n❌ Startup error: {str(e)}\n")
+    
+    yield  # Application runs here
+    
+    # Shutdown
+    try:
+        from utilities.cosmos_connector import ClientManager
+        
+        print("\n" + "="*60)
+        print("🛑 MetaSync API Shutting Down...")
+        print("="*60)
+        
+        # Stop workers FIRST (before closing DB)
+        manager = get_worker_manager()
+        
+        # Run stop_all_workers in executor to avoid blocking the event loop
+        loop = asyncio.get_event_loop()
+        try:
+            await asyncio.wait_for(
+                loop.run_in_executor(None, manager.stop_all_workers),
+                timeout=5.0  # 5 second timeout total
+            )
+        except asyncio.TimeoutError:
+            print("⚠️  Some workers may still be running")
+        
+        # NOW close MongoDB connections (after workers are stopped)
+        try:
+            client_manager = ClientManager()
+            client_manager.close_all()
+            print("🔌 Database connections closed")
+        except Exception as e:
+            print(f"⚠️  Error closing database: {str(e)}")
+        
+        print("="*60)
+        print("👋 MetaSync API Stopped")
+        print("="*60 + "\n")
+            
+    except Exception as e:
+        print(f"\n❌ Shutdown error: {str(e)}\n")
+
+
 # Initialize FastAPI app
 app = FastAPI(
     title="MetaSync API",
@@ -36,7 +94,8 @@ app = FastAPI(
     version="0.1.0",
     docs_url=None,  # Disable automatic /docs endpoint
     redoc_url=None,  # Disable automatic /redoc endpoint
-    openapi_url=None  # Disable automatic /openapi.json endpoint
+    openapi_url=None,  # Disable automatic /openapi.json endpoint
+    lifespan=lifespan
 )
 
 # Add correlation ID middleware
@@ -122,61 +181,6 @@ async def protected_openapi():
     """Protected OpenAPI schema."""
     return app.openapi()
 
-
-@app.on_event("startup")
-async def startup_event():
-    """Initialize WorkerManager on startup."""
-    try:
-        manager = get_worker_manager()
-        manager.load_workers_from_db()
-        logger.info(
-            "WorkerManager initialized and workers loaded from database"
-        )
-    except Exception as e:
-        logger.error(
-            "Error initializing WorkerManager on startup", error=str(e)
-        )
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Stop all workers on shutdown."""
-    import asyncio
-    from utilities.cosmos_connector import ClientManager
-    
-    try:
-        # Stop workers in a separate thread with timeout to avoid blocking
-        manager = get_worker_manager()
-        
-        # Run stop_all_workers in executor to avoid blocking the event loop
-        loop = asyncio.get_event_loop()
-        try:
-            await asyncio.wait_for(
-                loop.run_in_executor(None, manager.stop_all_workers),
-                timeout=15.0  # 15 second timeout
-            )
-            logger.info("All workers stopped during shutdown")
-        except asyncio.TimeoutError:
-            logger.warning(
-                "Timeout stopping workers during shutdown - some workers "
-                "may still be running"
-            )
-        
-        # Close all MongoDB connections
-        try:
-            client_manager = ClientManager()
-            client_manager.close_all()
-            logger.info("All MongoDB connections closed during shutdown")
-        except Exception as e:
-            logger.error(
-                "Error closing MongoDB connections during shutdown",
-                error=str(e)
-            )
-            
-    except Exception as e:
-        logger.error(
-            "Error stopping workers during shutdown", error=str(e)
-        )
 
 if __name__ == "__main__":
     import uvicorn

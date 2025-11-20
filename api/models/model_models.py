@@ -10,6 +10,7 @@ from pydantic import (
 )
 from typing import Optional, Dict, Any
 from datetime import datetime
+from llm_sdks.registry import SDKRegistry
 
 
 class CostModel(BaseModel):
@@ -54,7 +55,7 @@ class ModelCreateRequest(BaseModel):
     @classmethod
     def validate_sdk(cls, v: str) -> str:
         """Validate SDK is one of the supported types"""
-        allowed_sdks = ["ChatCompletionsClient", "AzureOpenAI", "Anthropic", "test"]
+        allowed_sdks = SDKRegistry.list_sdks()
         if v not in allowed_sdks:
             raise ValueError(f"SDK must be one of: {', '.join(allowed_sdks)}")
         return v
@@ -88,7 +89,7 @@ class ModelUpdateRequest(BaseModel):
         """Validate SDK is one of the supported types"""
         if v is None:
             return v
-        allowed_sdks = ["ChatCompletionsClient", "AzureOpenAI", "Anthropic", "test"]
+        allowed_sdks = SDKRegistry.list_sdks()
         if v not in allowed_sdks:
             raise ValueError(f"SDK must be one of: {', '.join(allowed_sdks)}")
         return v

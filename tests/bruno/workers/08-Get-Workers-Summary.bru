@@ -1,0 +1,79 @@
+meta {
+  name: Get Workers Summary
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{baseUrl}}/workers/summary
+  body: none
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  client_id: {{clientId}}
+  client_api_key: {{clientApiKey}}
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Response is an object", function() {
+    expect(res.getBody()).to.be.an('object');
+  });
+  
+  test("Response has all status counts", function() {
+    const summary = res.getBody();
+    expect(summary).to.have.property('running');
+    expect(summary).to.have.property('stopped');
+    expect(summary).to.have.property('error');
+    expect(summary).to.have.property('total');
+  });
+  
+  test("Response has all status ID lists", function() {
+    const summary = res.getBody();
+    expect(summary).to.have.property('running_ids');
+    expect(summary).to.have.property('stopped_ids');
+    expect(summary).to.have.property('error_ids');
+  });
+  
+  test("Status counts are numbers", function() {
+    const summary = res.getBody();
+    expect(summary.running).to.be.a('number');
+    expect(summary.stopped).to.be.a('number');
+    expect(summary.error).to.be.a('number');
+    expect(summary.total).to.be.a('number');
+  });
+  
+  test("Status ID lists are arrays", function() {
+    const summary = res.getBody();
+    expect(summary.running_ids).to.be.an('array');
+    expect(summary.stopped_ids).to.be.an('array');
+    expect(summary.error_ids).to.be.an('array');
+  });
+  
+  test("Total equals sum of all statuses", function() {
+    const summary = res.getBody();
+    const sum = summary.running + summary.stopped + summary.error;
+    expect(summary.total).to.equal(sum);
+  });
+  
+  test("All counts are non-negative", function() {
+    const summary = res.getBody();
+    expect(summary.running).to.be.at.least(0);
+    expect(summary.stopped).to.be.at.least(0);
+    expect(summary.error).to.be.at.least(0);
+    expect(summary.total).to.be.at.least(0);
+  });
+  
+  test("ID list counts match status counts", function() {
+    const summary = res.getBody();
+    expect(summary.running_ids.length).to.equal(summary.running);
+    expect(summary.stopped_ids.length).to.equal(summary.stopped);
+    expect(summary.error_ids.length).to.equal(summary.error);
+  });
+}
+

@@ -720,27 +720,29 @@ class QueueWorker:
 
     def run_worker(self):
         """Run the worker loop. Can be stopped via stop_event."""
-        print(f"🚀 Starting queue worker {self.worker_id}...")
-        print(f"   Client ID: {self.client_id}")
-        print(f"   Poll interval: {self.poll_interval}s")
-        print(f"   Max items per batch: {self.max_items_per_batch}")
-        model_filter_display = (
-            self.model_filter if self.model_filter else 'All models'
-        )
-        print(f"   Model filter: {model_filter_display}")
-        operation_filter_display = (
-            self.operation_filter
-            if self.operation_filter else 'All operations'
-        )
-        print(f"   Operation filter: {operation_filter_display}")
-        cr_filters_display = (
-            self.client_reference_filters
-            if self.client_reference_filters else 'None'
-        )
-        print(f"   ClientReference filters: {cr_filters_display}")
-        print(f"   Database: {self.db_name}")
-        print(f"   Collection: jobs")
-        print(f"   Exit when empty: {self.exit_when_empty}")
+        # Only show detailed startup info in DEBUG mode
+        if self.log_level == "DEBUG":
+            print(f"🚀 Starting queue worker {self.worker_id}...")
+            print(f"   Client ID: {self.client_id}")
+            print(f"   Poll interval: {self.poll_interval}s")
+            print(f"   Max items per batch: {self.max_items_per_batch}")
+            model_filter_display = (
+                self.model_filter if self.model_filter else 'All models'
+            )
+            print(f"   Model filter: {model_filter_display}")
+            operation_filter_display = (
+                self.operation_filter
+                if self.operation_filter else 'All operations'
+            )
+            print(f"   Operation filter: {operation_filter_display}")
+            cr_filters_display = (
+                self.client_reference_filters
+                if self.client_reference_filters else 'None'
+            )
+            print(f"   ClientReference filters: {cr_filters_display}")
+            print(f"   Database: {self.db_name}")
+            print(f"   Collection: jobs")
+            print(f"   Exit when empty: {self.exit_when_empty}")
 
         while not self.stop_event.is_set():
             try:
@@ -811,7 +813,7 @@ class QueueWorker:
                     )
 
                 # Brief pause before next poll (check stop_event during wait)
-                if self.stop_event.wait(timeout=5):
+                if self.stop_event.wait(timeout=0.5):
                     break
 
             except KeyboardInterrupt:
@@ -821,7 +823,7 @@ class QueueWorker:
                 print(f"❌ Worker {self.worker_id}: Error: {e}")
                 print(f"⏳ Worker {self.worker_id}: Waiting {self.poll_interval}s before retry...")
                 # Use wait with timeout to allow checking stop_event
-                if self.stop_event.wait(timeout=self.poll_interval):
+                if self.stop_event.wait(timeout=min(1.0, self.poll_interval)):
                     break
         
         # Close MongoDB connection when stopping

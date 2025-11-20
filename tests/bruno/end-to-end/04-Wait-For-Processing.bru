@@ -18,7 +18,7 @@ headers {
 
 script:pre-request {
   // Use a proper async delay instead of busy-wait to avoid connection issues
-  const waitTime = 10000; // 10 seconds
+  const waitTime = 2000; // 10 seconds
   
   console.log(`Waiting ${waitTime / 1000} seconds before checking job status...`);
   

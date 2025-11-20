@@ -3,7 +3,7 @@ Worker management API router
 Provides CRUD operations for workers with client and admin authentication
 """
 from fastapi import APIRouter, HTTPException, status, Depends, Header, Query, Request
-from typing import List, Optional, Annotated
+from typing import List, Optional, Annotated, Dict, Any
 
 from api.middleware.auth import verify_admin_api_key
 from api.middleware.client_auth import verify_client_auth
@@ -12,7 +12,8 @@ from api.models.worker_models import (
     WorkerUpdateRequest,
     WorkerResponse,
     WorkerStatus,
-    WorkerOverviewResponse
+    WorkerOverviewResponse,
+    WorkerSummaryResponse
 )
 from api.services.worker_service import get_worker_service
 from api.services.worker_manager import get_worker_manager
@@ -119,6 +120,80 @@ async def list_workers(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to list workers"
+        )
+
+
+@router.get("/summary", response_model=WorkerSummaryResponse)
+async def get_workers_summary(
+    request: Request,
+    client_id: Optional[str] = Depends(optional_client_auth),
+    admin_api_key: Optional[str] = Depends(optional_admin_auth),
+    modelFilter: Optional[str] = Query(None, description="Filter by config.modelFilter"),
+    operationFilter: Optional[str] = Query(None, description="Filter by config.operationFilter")
+):
+    """
+    Get summary of workers with counts and IDs by status.
+    
+    - Supports both client and admin authentication
+    - Clients can only see their own workers
+    - Admins can see all workers
+    - Returns counts for each status (running, stopped, error)
+    - Returns lists of worker IDs for each status
+    - Supports filtering by modelFilter, operationFilter, and any
+      config.clientReferenceFilters field
+    - For clientReferenceFilters filtering, use query parameters like:
+      clientReference.randomProp=hello
+    """
+    # Determine if admin
+    is_admin = admin_api_key is not None
+    
+    # If not admin, client_id is required
+    if not is_admin and client_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Client authentication or admin API key is required"
+        )
+    
+    try:
+        service = get_worker_service()
+        
+        # Parse clientReference filters from query parameters
+        # Look for query params that start with "clientReference."
+        client_reference_filters: Dict[str, Any] = {}
+        for key, value in request.query_params.items():
+            if key.startswith("clientReference."):
+                # Extract the field name after "clientReference."
+                field_name = key[len("clientReference."):]
+                client_reference_filters[field_name] = value
+        
+        # Convert empty dict to None if no filters
+        if not client_reference_filters:
+            client_reference_filters = None
+        
+        summary = service.get_workers_summary(
+            client_id=client_id,
+            is_admin=is_admin,
+            model_filter=modelFilter,
+            operation_filter=operationFilter,
+            client_reference_filters=client_reference_filters
+        )
+        
+        return WorkerSummaryResponse(**summary)
+    except HTTPException:
+        raise
+    except ValueError as e:
+        logger.warning("Validation error getting workers summary", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        logger.error(
+            "Error getting workers summary", error=str(e), client_id=client_id
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get workers summary"
         )
 
 
@@ -259,8 +334,11 @@ async def start_worker(
                 detail=f"Failed to start worker: {str(e)}"
             )
         
-        # Get updated worker status
-        worker = service.get_worker_by_id(worker_id, client_id=client_id)
+        # Get updated worker status from manager (avoids redundant DB call)
+        worker = manager.get_worker_status(worker_id)
+        if not worker:
+            # Fallback to service if manager doesn't have it
+            worker = service.get_worker_by_id(worker_id, client_id=client_id)
         
         return WorkerResponse(**worker)
     except HTTPException:
@@ -314,8 +392,11 @@ async def stop_worker(
                 detail="Failed to stop worker"
             )
         
-        # Get updated worker status
-        worker = service.get_worker_by_id(worker_id, client_id=client_id)
+        # Get updated worker status from manager (avoids redundant DB call)
+        worker = manager.get_worker_status(worker_id)
+        if not worker:
+            # Fallback to service if manager doesn't have it
+            worker = service.get_worker_by_id(worker_id, client_id=client_id)
         
         return WorkerResponse(**worker)
     except HTTPException:
@@ -384,67 +465,3 @@ async def delete_worker(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete worker"
         )
-
-
-@router.get("/admin/overview", response_model=WorkerOverviewResponse)
-async def get_workers_overview(
-    admin_api_key: str = Depends(verify_admin_api_key)
-):
-    """
-    Get overview of all workers across all clients (admin only).
-    
-    - Requires admin API key (admin_api_key header)
-    - Returns summary statistics and list of all workers
-    """
-    try:
-        manager = get_worker_manager()
-        workers = manager.list_workers()
-        
-        # Calculate statistics
-        total_workers = len(workers)
-        running_workers = sum(
-            1 for w in workers if w.get("status") == WorkerStatus.RUNNING.value
-        )
-        stopped_workers = sum(
-            1 for w in workers if w.get("status") == WorkerStatus.STOPPED.value
-        )
-        error_workers = sum(
-            1 for w in workers if w.get("status") == WorkerStatus.ERROR.value
-        )
-        
-        # Group by client
-        workers_by_client: dict = {}
-        for worker in workers:
-            client_id = worker.get("clientId")
-            if client_id not in workers_by_client:
-                workers_by_client[client_id] = {
-                    "running": 0,
-                    "stopped": 0,
-                    "error": 0
-                }
-            
-            status = worker.get("status")
-            if status == WorkerStatus.RUNNING.value:
-                workers_by_client[client_id]["running"] += 1
-            elif status == WorkerStatus.STOPPED.value:
-                workers_by_client[client_id]["stopped"] += 1
-            elif status == WorkerStatus.ERROR.value:
-                workers_by_client[client_id]["error"] += 1
-        
-        return WorkerOverviewResponse(
-            total_workers=total_workers,
-            running_workers=running_workers,
-            stopped_workers=stopped_workers,
-            error_workers=error_workers,
-            workers_by_client=workers_by_client,
-            workers=[WorkerResponse(**worker) for worker in workers]
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error("Error getting workers overview", error=str(e))
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to get workers overview"
-        )
-

@@ -85,7 +85,7 @@ def run_single_llm_worker(worker_id: int, results: list):
     """Run a single LLM worker in a separate process."""
     try:
         # Get the path to the LLM worker
-        llm_worker_path = project_root / "llm-workers" / "llm_queue_worker.py"
+        llm_worker_path = project_root / "llm_workers" / "llm_queue_worker.py"
 
         if not llm_worker_path.exists():
             print(
@@ -143,7 +143,7 @@ def run_llm_workers(config: RunConfig):
 
     try:
         # Get the path to the LLM worker
-        llm_worker_path = project_root / "llm-workers" / "llm_queue_worker.py"
+        llm_worker_path = project_root / "llm_workers" / "llm_queue_worker.py"
 
         if not llm_worker_path.exists():
             print(f"❌ LLM worker not found at: {llm_worker_path}")

@@ -2,7 +2,7 @@
 Pydantic models for worker management API
 """
 from pydantic import BaseModel, Field, field_validator, ConfigDict
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from enum import Enum
 
 
@@ -122,5 +122,29 @@ class WorkerOverviewResponse(BaseModel):
         }
     )
 
+
+class WorkerSummaryResponse(BaseModel):
+    """Response model for worker summary with counts and IDs by status"""
+    running: int = Field(0, description="Count of workers with RUNNING status")
+    stopped: int = Field(0, description="Count of workers with STOPPED status")
+    error: int = Field(0, description="Count of workers with ERROR status")
+    total: int = Field(0, description="Total count of workers matching filters")
+    running_ids: List[str] = Field(default_factory=list, description="List of worker IDs with RUNNING status")
+    stopped_ids: List[str] = Field(default_factory=list, description="List of worker IDs with STOPPED status")
+    error_ids: List[str] = Field(default_factory=list, description="List of worker IDs with ERROR status")
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "running": 2,
+                "stopped": 3,
+                "error": 1,
+                "total": 6,
+                "running_ids": ["507f1f77bcf86cd799439011", "507f1f77bcf86cd799439012"],
+                "stopped_ids": ["507f1f77bcf86cd799439013", "507f1f77bcf86cd799439014", "507f1f77bcf86cd799439015"],
+                "error_ids": ["507f1f77bcf86cd799439016"]
+            }
+        }
+    )
 
 
