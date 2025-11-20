@@ -100,15 +100,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
-          # Create annotated tag with release info
-          git tag -a "$NEW_TAG" -m "Release $NEW_TAG
-
-Automated release via CI/CD pipeline
-Bump type: $BUMP_TYPE
-
-Commits in this release:
-$(git log --pretty=format:'- %s (%h)' $(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo '')..HEAD)
-"
+          # Create annotated tag with release info using heredoc
+          git tag -a "$NEW_TAG" -m "Release $NEW_TAG - Automated $BUMP_TYPE bump"
           
           # Push the tag
           git push origin "$NEW_TAG"
