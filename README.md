@@ -18,11 +18,7 @@ The Metasync Docker image is available on Docker Hub:
 
 In time, we want to add a layer of abstraction to allow orchestration of many LLM tasks, automated handling of model rate limiters, built-in multi-provider failover routing, evaluation pipelines, and long-running background jobs.
 
-# 0.3.0 To Dos
-- Add a sync API for testing and quick access to models
-
 # 1.0.0
-- Full stable API with more edge-case before graduating to 1.0
 - Address statelessness & challenges with multithreaded workers defined within the replicas
 - Ensure the llm-optimiser functionalities are fully API enabled and working in the framework
 - Chain or Embed the evaluation step (optionally) separately from the llm_optimizer but still compatible with the optimization routines

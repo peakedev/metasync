@@ -1,0 +1,40 @@
+meta {
+  name: Error - Unauthorized
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/stream
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "userPrompt": "Test prompt",
+    "model": "gptest",
+    "temperature": 0.7
+  }
+}
+
+tests {
+  test("Status code is 401 or 422", function() {
+    const status = res.getStatus();
+    expect([401, 422]).to.include(status);
+  });
+  
+  test("Response is an object", function() {
+    expect(res.getBody()).to.be.an('object');
+  });
+  
+  test("Error detail indicates authentication issue", function() {
+    const detail = res.getBody().detail;
+    expect(detail).to.exist;
+  });
+}
+

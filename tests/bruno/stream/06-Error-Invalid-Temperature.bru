@@ -1,0 +1,40 @@
+meta {
+  name: Error - Invalid Temperature
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/stream
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  client_id: {{clientId}}
+  client_api_key: {{clientApiKey}}
+}
+
+body:json {
+  {
+    "userPrompt": "Test prompt",
+    "model": "gptest",
+    "temperature": 3.5
+  }
+}
+
+tests {
+  test("Status code is 422", function() {
+    expect(res.getStatus()).to.equal(422);
+  });
+  
+  test("Response is an object", function() {
+    expect(res.getBody()).to.be.an('object');
+  });
+  
+  test("Error indicates validation issue", function() {
+    expect(res.getBody()).to.have.property('detail');
+  });
+}
+

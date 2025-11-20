@@ -1,0 +1,48 @@
+meta {
+  name: Stream Request
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/stream
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  client_id: {{clientId}}
+  client_api_key: {{clientApiKey}}
+}
+
+body:json {
+  {
+    "userPrompt": "Tell me a short story",
+    "model": "gptest",
+    "temperature": 0.7
+  }
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Response has X-Stream-Id header", function() {
+    const streamId = res.getHeader('x-stream-id') || res.getHeader('X-Stream-Id');
+    expect(streamId).to.be.a('string');
+    expect(streamId.length).to.be.greaterThan(0);
+    bru.setVar("streamId", streamId);
+  });
+  
+  test("Response body is text", function() {
+    expect(res.getBody()).to.be.a('string');
+    expect(res.getBody().length).to.be.greaterThan(0);
+  });
+  
+  test("Response contains lorem ipsum text", function() {
+    const body = res.getBody();
+    expect(body).to.include('Lorem ipsum');
+  });
+}
