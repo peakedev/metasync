@@ -152,6 +152,13 @@ jobs:
               -r "$test_folder" \
               --junit "../../test-results/results-${test_folder}.xml" \
               --html "../../test-results/report-${test_folder}.html" > /tmp/${test_folder}.log 2>&1; then
+              
+              echo ""
+              echo "=== DEBUG: First 20 lines of ${test_folder}.log ==="
+              head -n 20 /tmp/${test_folder}.log
+              echo "=== END DEBUG ==="
+              echo ""
+              
               echo "✅ ${test_folder}" >> /tmp/test-summary.txt
               echo "✅ ${test_folder}: All tests passed" >> /tmp/test-detail.txt
               # Still show all tests for passed suites
@@ -160,6 +167,12 @@ jobs:
               done
               echo "" >> /tmp/test-detail.txt
             else
+              echo ""
+              echo "=== DEBUG: First 20 lines of ${test_folder}.log ==="
+              head -n 20 /tmp/${test_folder}.log
+              echo "=== END DEBUG ==="
+              echo ""
+              
               echo "❌ ${test_folder}" >> /tmp/test-summary.txt
               echo "❌ ${test_folder}: Some tests failed" >> /tmp/test-detail.txt
               
@@ -329,10 +342,10 @@ jobs:
           path: test-results/
           retention-days: 30
       
-      - name: Add test report summary
+      - name: Add test suites result overview
         if: always()
         run: |
-          echo "## 📊 Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "## 📊 Test Suites Result Overview" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
           # Add quick summary
