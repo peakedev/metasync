@@ -18,12 +18,15 @@ The Metasync Docker image is available on Docker Hub:
 
 In time, we want to add a layer of abstraction to allow orchestration of many LLM tasks, automated handling of model rate limiters, built-in multi-provider failover routing, evaluation pipelines, and long-running background jobs.
 
+# Urgent Improvements
+- optimizer (!)
+- worker replicas defined at the worker level (!)
+
 # 1.0.0
-- Address statelessness & challenges with multithreaded workers defined within the replicas
-- Ensure the llm-optimiser functionalities are fully API enabled and working in the framework
-- Chain or Embed the evaluation step (optionally) separately from the llm_optimizer but still compatible with the optimization routines
-- Control on rate limiting
-- Control on cost & cost estimates
+- Runtime statelessness & suppot for multithreaded workers accross replicas
+- Auto mode with (parametrised) model router as entry point (support for 'model forwarding') 
+- High level worker controls (Total estimate cost; Rate limiting in Tokens per minute)
+- Accompanying UI 
 
 ## Project Structure
 

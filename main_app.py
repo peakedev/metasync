@@ -23,9 +23,11 @@ from api.routers import (
     workers,
     prompt_flows,
     models,
-    stream
+    stream,
+    runs
 )
 from api.services.worker_manager import get_worker_manager
+from api.services.run_orchestrator import get_run_orchestrator
 
 # Configure logging
 configure_logging()
@@ -41,8 +43,15 @@ async def lifespan(app: FastAPI):
         print("\n" + "="*60)
         print("🚀 MetaSync API Starting...")
         print("="*60)
+        
+        # Start worker manager
         manager = get_worker_manager()
         manager.load_workers_from_db()
+        
+        # Start run orchestrator
+        orchestrator = get_run_orchestrator()
+        orchestrator.start()
+        
         print("="*60)
         print("✅ MetaSync API Ready")
         print("="*60 + "\n")
@@ -59,7 +68,11 @@ async def lifespan(app: FastAPI):
         print("🛑 MetaSync API Shutting Down...")
         print("="*60)
         
-        # Stop workers FIRST (before closing DB)
+        # Stop orchestrator FIRST
+        orchestrator = get_run_orchestrator()
+        orchestrator.stop()
+        
+        # Stop workers
         manager = get_worker_manager()
         
         # Run stop_all_workers in executor to avoid blocking the event loop
@@ -72,7 +85,7 @@ async def lifespan(app: FastAPI):
         except asyncio.TimeoutError:
             print("⚠️  Some workers may still be running")
         
-        # NOW close MongoDB connections (after workers are stopped)
+        # NOW close MongoDB connections (after workers and orchestrator are stopped)
         try:
             client_manager = ClientManager()
             client_manager.close_all()
@@ -160,6 +173,7 @@ app.include_router(
 )
 app.include_router(models.router, prefix="/models", tags=["models"])
 app.include_router(stream.router, prefix="/stream", tags=["stream"])
+app.include_router(runs.router, prefix="/runs", tags=["runs"])
 
 # Protected documentation endpoints
 @app.get("/docs", dependencies=[Depends(docs_auth_dependency)])

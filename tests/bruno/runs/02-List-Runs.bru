@@ -1,0 +1,22 @@
+meta {
+  name: 02-List-Runs
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{base_url}}/runs
+  body: none
+  auth: none
+}
+
+headers {
+  client_id: {{client_id}}
+  client_api_key: {{client_api_key}}
+}
+
+assert {
+  res.status: eq 200
+  res.body: isArray
+}
+

@@ -1,0 +1,46 @@
+meta {
+  name: 01-Create-Run
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{base_url}}/runs
+  body: json
+  auth: none
+}
+
+headers {
+  client_id: {{client_id}}
+  client_api_key: {{client_api_key}}
+}
+
+body:json {
+  {
+    "initialWorkingPromptId": "{{working_prompt_id}}",
+    "evalPromptId": "{{eval_prompt_id}}",
+    "evalModel": "{{eval_model}}",
+    "metaPromptId": "{{meta_prompt_id}}",
+    "metaModel": "{{meta_model}}",
+    "workingModels": ["{{working_model_1}}", "{{working_model_2}}"],
+    "maxIterations": 3,
+    "temperature": 0.7,
+    "priority": 100,
+    "requestData": {
+      "text": "Bonjour mon ami"
+    }
+  }
+}
+
+assert {
+  res.status: eq 201
+  res.body.status: eq RUNNING
+  res.body.runId: isDefined
+}
+
+script:post-response {
+  if (res.status === 201) {
+    bru.setVar("run_id", res.body.runId);
+  }
+}
+

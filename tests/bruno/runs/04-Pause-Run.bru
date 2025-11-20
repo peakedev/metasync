@@ -1,0 +1,22 @@
+meta {
+  name: 04-Pause-Run
+  type: http
+  seq: 4
+}
+
+patch {
+  url: {{base_url}}/runs/{{run_id}}/pause
+  body: none
+  auth: none
+}
+
+headers {
+  client_id: {{client_id}}
+  client_api_key: {{client_api_key}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.status: eq PAUSED
+}
+
