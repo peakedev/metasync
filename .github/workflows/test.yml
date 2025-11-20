@@ -148,9 +148,9 @@ jobs:
             echo "Running tests for: ${test_folder}"
             
             # Run Bruno tests for this specific folder and capture output
-            if bru run --env local \
-              -r "$test_folder" \
-              --output ../../test-results/results-${test_folder}.json 2>&1 | tee /tmp/${test_folder}.log; then
+            if bru run -r \
+              --env local \
+              "$test_folder" > /tmp/${test_folder}.log 2>&1; then
               
               echo ""
               echo "=== DEBUG: First 20 lines of ${test_folder}.log ==="
