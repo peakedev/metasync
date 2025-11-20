@@ -150,8 +150,8 @@ jobs:
             # Run Bruno tests for this specific folder and capture output
             if bru run --env local \
               -r "$test_folder" \
-              --reporter-junit "../../test-results/results-${test_folder}.xml" \
-              --reporter-html "../../test-results/report-${test_folder}.html" > /tmp/${test_folder}.log 2>&1; then
+              --junit "../../test-results/results-${test_folder}.xml" \
+              --html "../../test-results/report-${test_folder}.html" > /tmp/${test_folder}.log 2>&1; then
               echo "✅ ${test_folder}" >> /tmp/test-summary.txt
               echo "✅ ${test_folder}: All tests passed" >> /tmp/test-detail.txt
               # Still show all tests for passed suites
