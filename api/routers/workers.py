@@ -25,9 +25,15 @@ router = APIRouter()
 
 def optional_client_auth(
     client_id: Annotated[Optional[str], Header(alias="client_id")] = None,
-    client_api_key: Annotated[Optional[str], Header(alias="client_api_key")] = None
+    client_api_key: Annotated[
+        Optional[str], Header(alias="client_api_key")
+    ] = None
 ) -> Optional[str]:
-    """Optional client authentication - returns client_id if valid, None otherwise"""
+    """
+    Optional client authentication.
+    
+    Returns client_id if valid, None otherwise.
+    """
     if client_id is None or client_api_key is None:
         return None
     try:
@@ -37,9 +43,15 @@ def optional_client_auth(
 
 
 def optional_admin_auth(
-    admin_api_key: Annotated[Optional[str], Header(alias="admin_api_key")] = None
+    admin_api_key: Annotated[
+        Optional[str], Header(alias="admin_api_key")
+    ] = None
 ) -> Optional[str]:
-    """Optional admin authentication - returns admin_api_key if valid, None otherwise"""
+    """
+    Optional admin authentication.
+    
+    Returns admin_api_key if valid, None otherwise.
+    """
     if admin_api_key is None:
         return None
     try:
@@ -56,7 +68,8 @@ async def create_worker(
     """
     Create a new worker.
     
-    - Requires client authentication (client_id and client_api_key headers)
+    - Requires client authentication (client_id and client_api_key
+      headers)
     - Worker is created in stopped state
     - Returns the created worker data
     """
@@ -90,7 +103,8 @@ async def list_workers(
     """
     List all workers for the authenticated client.
     
-    - Requires client authentication (client_id and client_api_key headers)
+    - Requires client authentication (client_id and client_api_key
+      headers)
     - Clients can only see their own workers
     """
     try:
@@ -116,7 +130,8 @@ async def get_worker(
     """
     Get a worker by ID.
     
-    - Requires client authentication (client_id and client_api_key headers)
+    - Requires client authentication (client_id and client_api_key
+      headers)
     - Clients can only access their own workers
     """
     try:
@@ -149,7 +164,8 @@ async def update_worker(
     """
     Update worker configuration.
     
-    - Requires client authentication (client_id and client_api_key headers)
+    - Requires client authentication (client_id and client_api_key
+      headers)
     - Worker must be stopped before updating configuration
     - Clients can only update their own workers
     """
@@ -162,7 +178,9 @@ async def update_worker(
         if worker.get("status") == WorkerStatus.RUNNING.value:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Cannot update a running worker. Stop the worker first."
+                detail=(
+                    "Cannot update a running worker. Stop the worker first."
+                )
             )
         
         # Update worker configuration
@@ -177,7 +195,11 @@ async def update_worker(
     except HTTPException:
         raise
     except ValueError as e:
-        logger.warning("Validation error updating worker", error=str(e), worker_id=worker_id)
+        logger.warning(
+            "Validation error updating worker",
+            error=str(e),
+            worker_id=worker_id
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
@@ -198,7 +220,8 @@ async def start_worker(
     """
     Start a worker.
     
-    - Requires client authentication (client_id and client_api_key headers)
+    - Requires client authentication (client_id and client_api_key
+      headers)
     - Worker must be in stopped state
     - Clients can only start their own workers
     """
@@ -225,7 +248,12 @@ async def start_worker(
                     detail="Failed to start worker"
                 )
         except Exception as e:
-            logger.error("Error in start_worker endpoint", error=str(e), worker_id=worker_id, exc_info=True)
+            logger.error(
+                "Error in start_worker endpoint",
+                error=str(e),
+                worker_id=worker_id,
+                exc_info=True
+            )
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to start worker: {str(e)}"
@@ -259,7 +287,8 @@ async def stop_worker(
     """
     Stop a worker.
     
-    - Requires client authentication (client_id and client_api_key headers)
+    - Requires client authentication (client_id and client_api_key
+      headers)
     - Worker must be in running state
     - Clients can only stop their own workers
     """
@@ -313,7 +342,8 @@ async def delete_worker(
     """
     Delete a worker.
     
-    - Requires client authentication (client_id and client_api_key headers)
+    - Requires client authentication (client_id and client_api_key
+      headers)
     - Worker must be stopped before deletion
     - Clients can only delete their own workers
     """
@@ -328,7 +358,9 @@ async def delete_worker(
         if worker.get("status") == WorkerStatus.RUNNING.value:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Cannot delete a running worker. Stop the worker first."
+                detail=(
+                    "Cannot delete a running worker. Stop the worker first."
+                )
             )
         
         # Stop worker if it's somehow still running in manager
@@ -370,16 +402,26 @@ async def get_workers_overview(
         
         # Calculate statistics
         total_workers = len(workers)
-        running_workers = sum(1 for w in workers if w.get("status") == WorkerStatus.RUNNING.value)
-        stopped_workers = sum(1 for w in workers if w.get("status") == WorkerStatus.STOPPED.value)
-        error_workers = sum(1 for w in workers if w.get("status") == WorkerStatus.ERROR.value)
+        running_workers = sum(
+            1 for w in workers if w.get("status") == WorkerStatus.RUNNING.value
+        )
+        stopped_workers = sum(
+            1 for w in workers if w.get("status") == WorkerStatus.STOPPED.value
+        )
+        error_workers = sum(
+            1 for w in workers if w.get("status") == WorkerStatus.ERROR.value
+        )
         
         # Group by client
         workers_by_client: dict = {}
         for worker in workers:
             client_id = worker.get("clientId")
             if client_id not in workers_by_client:
-                workers_by_client[client_id] = {"running": 0, "stopped": 0, "error": 0}
+                workers_by_client[client_id] = {
+                    "running": 0,
+                    "stopped": 0,
+                    "error": 0
+                }
             
             status = worker.get("status")
             if status == WorkerStatus.RUNNING.value:

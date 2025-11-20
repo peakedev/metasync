@@ -2,24 +2,31 @@ from pymongo import MongoClient
 from bson import ObjectId
 from datetime import datetime
 import logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 from typing import Dict, List, Optional, Tuple
-from opti_inqueue_handler import build_client_reference, write_queue
-from utilities.cosmos_connector import db_find_one
-
 from dataclasses import dataclass
 from enum import Enum
 
+from opti_inqueue_handler import build_client_reference, write_queue
+from utilities.cosmos_connector import db_find_one
+
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 
 class IterationState(str, Enum):
+    """Enumeration of possible iteration states."""
+    
     PENDING = "pending"
     IN_PROGRESS = "in_progress"
     COMPLETE = "complete"
     FAILED = "failed"
 
+
 @dataclass
 class IterationContext:
+    """Context for an iteration."""
+    
     test_id: str
     run_id: str
     iteration: int
@@ -28,7 +35,13 @@ class IterationContext:
     temperature: float
     input_text: Optional[Dict]
 
-def get_iteration_count(mongo_client, db_name: str, test_id: str, run_combi: str) -> int:
+
+def get_iteration_count(
+    mongo_client,
+    db_name: str,
+    test_id: str,
+    run_combi: str
+) -> int:
     """Get the number of completed iterations with improved error handling."""
     try:
         doc = db_find_one(mongo_client, db_name, "runs", {"test_id": test_id})
@@ -40,7 +53,10 @@ def get_iteration_count(mongo_client, db_name: str, test_id: str, run_combi: str
             if run.get("run") == run_combi:
                 iterations = run.get("iterations", [])
                 # Only count completed iterations
-                return len([it for it in iterations if it.get("status") == "complete"])
+                return len([
+                    it for it in iterations
+                    if it.get("status") == "complete"
+                ])
         return 0
 
     except Exception as e:
@@ -57,13 +73,19 @@ def iterations_loop(
     max_iterations: int = 5,
     temperature: float = 1.0,
 ) -> Tuple[Optional[Dict], Optional[List[Dict]], Optional[str]]:
-    """Execute iterations loop with improved state management and validation."""
+    """
+    Execute iterations loop.
+    
+    With improved state management and validation.
+    """
     try:
         # Create iteration context
         context = IterationContext(
             test_id=test_id,
             run_id=run_combi,
-            iteration=get_iteration_count(mongo_client, db_name, test_id, run_combi),
+            iteration=get_iteration_count(
+                mongo_client, db_name, test_id, run_combi
+            ),
             max_iterations=max_iterations,
             models=combo,
             temperature=temperature,
@@ -74,11 +96,15 @@ def iterations_loop(
         if not input_text:
             raise ValueError("Input text is required for optimization")
 
-        if not all(model in combo for model in ["core_model", "assessment_model", "meta_model"]):
+        required_models = ["core_model", "assessment_model", "meta_model"]
+        if not all(model in combo for model in required_models):
             raise ValueError("Missing required models in combo")
 
         if context.iteration >= max_iterations:
-            logger.info(f"↪️ Skipping {run_combi}, already completed {context.iteration}/{max_iterations} iterations.")
+            logger.info(
+                f"↪️ Skipping {run_combi}, already completed "
+                f"{context.iteration}/{max_iterations} iterations."
+            )
             return None, None, None
 
         # Update iteration count and create queue ID

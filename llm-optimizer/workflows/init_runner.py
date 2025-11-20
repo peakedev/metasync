@@ -1,6 +1,8 @@
-import sys, os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import sys
+import os
 import logging
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from typing import Dict, Optional
 from dataclasses import dataclass
 from pymongo.collection import Collection
@@ -33,7 +35,11 @@ class TestConfig:
             "eval_parameters": self.eval_parameters,
         }
 
-def init_run_db(mongo_client, db_name: str, test_config: Dict[str, any]) -> str:
+def init_run_db(
+    mongo_client,
+    db_name: str,
+    test_config: Dict[str, any]
+) -> str:
     """
     Initialize or update run configuration in database.
 
@@ -54,35 +60,41 @@ def init_run_db(mongo_client, db_name: str, test_config: Dict[str, any]) -> str:
             raise ValueError("test_id is required in test_config")
 
         config = TestConfig(
-            test_id = test_config["test_id"],
+            test_id=test_config["test_id"],
             base_prompt=test_config.get("base_prompt", ""),
             meta_prompt=test_config.get("meta_prompt", ""),
             eval_parameters=test_config.get("eval_parameters", [])
         )
 
         initial_doc = config.to_dict()
-        existing = db_find_one(mongo_client, db_name, "runs", {"test_id": config.test_id})
+        existing = db_find_one(
+            mongo_client, db_name, "runs", {"test_id": config.test_id}
+        )
 
         if existing:
-            logger.info(f"Found existing configuration for test_id: {config.test_id}")
+            logger.info(
+                f"Found existing configuration for test_id: "
+                f"{config.test_id}"
+            )
             if _needs_update(existing, initial_doc):
                 new_test_id = f"{config.test_id}_{1}"
                 initial_doc["test_id"] = new_test_id
                 initial_doc["runs"] = []
                 db_create(mongo_client, db_name, "runs", initial_doc)
-                logger.info(f"Created new version with test_id: {new_test_id}")
-                migrate_prompts(
-                    mongo_client,
-                    new_test_id)
+                logger.info(
+                    f"Created new version with test_id: {new_test_id}"
+                )
+                migrate_prompts(mongo_client, new_test_id)
 
                 return new_test_id
         else:
-            logger.info(f"Creating new configuration for test_id: {config.test_id}")
+            logger.info(
+                f"Creating new configuration for test_id: "
+                f"{config.test_id}"
+            )
             initial_doc["runs"] = []
             db_create(mongo_client, db_name, "runs", initial_doc)
-            migrate_prompts(
-                    mongo_client,
-                    config.test_id)
+            migrate_prompts(mongo_client, config.test_id)
 
         return config.test_id
 

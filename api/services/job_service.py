@@ -107,9 +107,14 @@ class JobService:
         - PENDING → CANCELED
         - PROCESSED → CONSUMED
         - PROCESSED → ERROR_CONSUMING
+        - PROCESSED → CANCELED
+        - ERROR_PROCESSING → PENDING (retry failed job)
+        - ERROR_CONSUMING → PROCESSED (retry failed consumption)
         
         Admin allowed transitions (in addition to client transitions):
         - CANCELED → PENDING
+        - ANY → ERROR_PROCESSING (admin only)
+        - ANY → ERROR_CONSUMING (admin only)
         
         Args:
             current_status: Current job status
@@ -122,7 +127,9 @@ class JobService:
         # Client transitions
         client_transitions = {
             JobStatus.PENDING: [JobStatus.CANCELED],
-            JobStatus.PROCESSED: [JobStatus.CONSUMED, JobStatus.ERROR_CONSUMING]
+            JobStatus.PROCESSED: [JobStatus.CONSUMED, JobStatus.ERROR_CONSUMING, JobStatus.CANCELED],
+            JobStatus.ERROR_PROCESSING: [JobStatus.PENDING],
+            JobStatus.ERROR_CONSUMING: [JobStatus.PROCESSED]
         }
         
         # Admin-only transitions
@@ -140,6 +147,10 @@ class JobService:
             admin_allowed = admin_transitions.get(current_status, [])
             if new_status in admin_allowed:
                 return True
+            
+            # Admin can set error states from any status
+            if new_status in [JobStatus.ERROR_PROCESSING, JobStatus.ERROR_CONSUMING]:
+                return True
         
         return False
     
@@ -153,6 +164,8 @@ class JobService:
         - PROCESSING → PROCESSED (workers)
         - PROCESSING → ERROR_PROCESSING (workers)
         - CANCELED → PENDING (admin only)
+        - ANY → ERROR_PROCESSING (admin only)
+        - ANY → ERROR_CONSUMING (admin only)
         
         Note: PROCESSED → CONSUMED and PROCESSED → ERROR_CONSUMING are client transitions,
         not worker transitions. Workers don't know what the client will do with the job.
@@ -186,6 +199,10 @@ class JobService:
         if is_admin:
             admin_allowed = admin_transitions.get(current_status, [])
             if new_status in admin_allowed:
+                return True
+            
+            # Admin can set error states from any status
+            if new_status in [JobStatus.ERROR_PROCESSING, JobStatus.ERROR_CONSUMING]:
                 return True
         
         return False
@@ -708,6 +725,230 @@ class JobService:
             raise RuntimeError("Failed to delete job in database")
         
         return success
+    
+    def update_jobs_batch(self, client_id: str, job_updates: List[Dict[str, Any]], is_admin: bool = False) -> List[Dict[str, Any]]:
+        """
+        Update multiple jobs at once.
+        
+        Args:
+            client_id: Client ID performing the updates
+            job_updates: List of job update items (each with jobId and optional update fields)
+            is_admin: Whether the requester is an admin
+            
+        Returns:
+            List of updated job dictionaries
+            
+        Raises:
+            ValueError: If validation fails for any job (entire batch fails)
+        """
+        business_logger.log_operation("job_service", "update_jobs_batch", client_id=client_id, job_count=len(job_updates))
+        
+        if not job_updates:
+            raise ValueError("At least one job update is required in the batch")
+        
+        # Validate all jobs first (all-or-nothing approach)
+        logger.info("Validating batch of job updates", job_count=len(job_updates), client_id=client_id)
+        
+        # First pass: validate all jobs exist and client has access
+        jobs_to_update = []
+        for idx, job_update in enumerate(job_updates):
+            job_id = job_update.get("jobId")
+            if not job_id:
+                raise ValueError(f"Job {idx + 1} in batch: jobId is required")
+            
+            try:
+                # Get existing job
+                job = get_document_by_id(
+                    self.mongo_client,
+                    self.db_name,
+                    self.collection_name,
+                    job_id
+                )
+                
+                if not job:
+                    raise ValueError(f"Job not found: {job_id}")
+                
+                # Check access
+                if not self._check_job_access(job, client_id, is_admin):
+                    raise ValueError(f"Access denied to job: {job_id}")
+                
+                jobs_to_update.append((job_id, job, job_update))
+                
+            except ValueError as e:
+                logger.warning("Validation error in batch update", error=str(e), job_index=idx, client_id=client_id)
+                raise ValueError(f"Validation failed for job {idx + 1} in batch: {str(e)}")
+        
+        # Second pass: validate all update fields (prompts, models, etc.)
+        for idx, (job_id, job, job_update) in enumerate(jobs_to_update):
+            try:
+                # Validate prompts if provided
+                if "prompts" in job_update and job_update["prompts"] is not None:
+                    self._validate_prompts_exist(job_update["prompts"])
+                
+                # Validate model if provided
+                if "model" in job_update and job_update["model"] is not None:
+                    self._validate_model_exists(job_update["model"])
+                
+                # Validate status transition if provided
+                if "status" in job_update and job_update["status"] is not None:
+                    current_status_str = job.get("status")
+                    try:
+                        current_status = JobStatus(current_status_str)
+                        new_status = JobStatus(job_update["status"])
+                    except ValueError as e:
+                        raise ValueError(f"Invalid status value: {str(e)}")
+                    
+                    # Use worker/admin transition validation
+                    if not self._validate_worker_status_transition(current_status, new_status, is_admin=is_admin):
+                        raise ValueError(f"Invalid status transition from {current_status.value} to {new_status.value}")
+                
+            except ValueError as e:
+                logger.warning("Validation error in batch update", error=str(e), job_index=idx, client_id=client_id)
+                raise ValueError(f"Validation failed for job {idx + 1} in batch: {str(e)}")
+        
+        logger.info("All job updates in batch validated successfully", job_count=len(job_updates))
+        
+        # Third pass: perform all updates
+        updated_jobs = []
+        try:
+            for idx, (job_id, job, job_update) in enumerate(jobs_to_update):
+                # Build update document
+                updates = {}
+                
+                if "status" in job_update and job_update["status"] is not None:
+                    updates["status"] = job_update["status"]
+                
+                if "operation" in job_update and job_update["operation"] is not None:
+                    updates["operation"] = job_update["operation"]
+                
+                if "prompts" in job_update and job_update["prompts"] is not None:
+                    updates["prompts"] = job_update["prompts"]
+                
+                if "model" in job_update and job_update["model"] is not None:
+                    updates["model"] = job_update["model"]
+                
+                if "temperature" in job_update and job_update["temperature"] is not None:
+                    if job_update["temperature"] < 0.0 or job_update["temperature"] > 1.0:
+                        raise ValueError(f"Job {idx + 1}: Temperature must be between 0 and 1")
+                    updates["temperature"] = job_update["temperature"]
+                
+                if "priority" in job_update and job_update["priority"] is not None:
+                    if job_update["priority"] < 1 or job_update["priority"] > 1000:
+                        raise ValueError(f"Job {idx + 1}: Priority must be between 1 and 1000")
+                    updates["priority"] = job_update["priority"]
+                
+                if "requestData" in job_update and job_update["requestData"] is not None:
+                    updates["requestData"] = job_update["requestData"]
+                
+                if "clientReference" in job_update and job_update["clientReference"] is not None:
+                    updates["clientReference"] = job_update["clientReference"]
+                
+                # Skip if no updates provided for this job
+                if not updates:
+                    logger.info("No updates provided for job, skipping", job_id=job_id, job_index=idx + 1)
+                    updated_jobs.append(self._format_job_response(job))
+                    continue
+                
+                # Update the job
+                success = db_update(
+                    self.mongo_client,
+                    self.db_name,
+                    self.collection_name,
+                    job_id,
+                    updates
+                )
+                
+                if not success:
+                    business_logger.log_error("job_service", "update_jobs_batch", f"Failed to update job {idx + 1} in database")
+                    raise RuntimeError(f"Failed to update job {idx + 1} in database")
+                
+                logger.info("Job updated in batch", job_id=job_id, job_index=idx + 1, client_id=client_id)
+            
+            # Fetch all updated jobs
+            for job_id, _, _ in jobs_to_update:
+                job = self.get_job_by_id(job_id, client_id, is_admin)
+                updated_jobs.append(job)
+            
+            logger.info("Batch of jobs updated successfully", job_count=len(updated_jobs), client_id=client_id)
+            return updated_jobs
+            
+        except Exception as e:
+            logger.error("Error updating jobs batch", error=str(e), client_id=client_id)
+            raise RuntimeError(f"Failed to update jobs batch: {str(e)}")
+    
+    def delete_jobs_batch(self, client_id: str, job_ids: List[str], is_admin: bool = False) -> bool:
+        """
+        Soft delete multiple jobs at once.
+        
+        Args:
+            client_id: Client ID performing the deletions
+            job_ids: List of job IDs to delete
+            is_admin: Whether the requester is an admin
+            
+        Returns:
+            True if all deletions successful
+            
+        Raises:
+            ValueError: If validation fails for any job (entire batch fails)
+        """
+        business_logger.log_operation("job_service", "delete_jobs_batch", client_id=client_id, job_count=len(job_ids))
+        
+        if not job_ids:
+            raise ValueError("At least one job ID is required in the batch")
+        
+        # Validate all jobs first (all-or-nothing approach)
+        logger.info("Validating batch of job deletions", job_count=len(job_ids), client_id=client_id)
+        
+        # Validate all jobs exist and client has access
+        jobs_to_delete = []
+        for idx, job_id in enumerate(job_ids):
+            try:
+                # Get existing job
+                job = get_document_by_id(
+                    self.mongo_client,
+                    self.db_name,
+                    self.collection_name,
+                    job_id
+                )
+                
+                if not job:
+                    raise ValueError(f"Job not found: {job_id}")
+                
+                # Check access
+                if not self._check_job_access(job, client_id, is_admin):
+                    raise ValueError(f"Access denied to job: {job_id}")
+                
+                jobs_to_delete.append(job_id)
+                
+            except ValueError as e:
+                logger.warning("Validation error in batch delete", error=str(e), job_index=idx, client_id=client_id)
+                raise ValueError(f"Validation failed for job {idx + 1} in batch: {str(e)}")
+        
+        logger.info("All jobs in batch validated for deletion", job_count=len(job_ids))
+        
+        # Delete all jobs
+        try:
+            for idx, job_id in enumerate(jobs_to_delete):
+                # Soft delete the job
+                success = db_delete(
+                    self.mongo_client,
+                    self.db_name,
+                    self.collection_name,
+                    job_id
+                )
+                
+                if not success:
+                    business_logger.log_error("job_service", "delete_jobs_batch", f"Failed to delete job {idx + 1} in database")
+                    raise RuntimeError(f"Failed to delete job {idx + 1} in database")
+                
+                logger.info("Job deleted in batch", job_id=job_id, job_index=idx + 1, client_id=client_id)
+            
+            logger.info("Batch of jobs deleted successfully", job_count=len(jobs_to_delete), client_id=client_id)
+            return True
+            
+        except Exception as e:
+            logger.error("Error deleting jobs batch", error=str(e), client_id=client_id)
+            raise RuntimeError(f"Failed to delete jobs batch: {str(e)}")
     
     def get_jobs_summary(
         self,

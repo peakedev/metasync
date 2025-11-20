@@ -1,0 +1,38 @@
+meta {
+  name: Error - Unauthorized Batch Update
+  type: http
+  seq: 37
+}
+
+patch {
+  url: {{baseUrl}}/jobs/batch
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "jobs": [
+      {
+        "jobId": "507f1f77bcf86cd799439011",
+        "priority": 500
+      }
+    ]
+  }
+}
+
+tests {
+  test("Status code is 401", function() {
+    expect(res.getStatus()).to.equal(401);
+  });
+  
+  test("Response contains error detail", function() {
+    const body = res.getBody();
+    expect(body).to.have.property('detail');
+    expect(body.detail).to.include('authentication');
+  });
+}

@@ -1,5 +1,2 @@
-"""Middleware for authentication and authorization"""
-
-
-
+"""Middleware for authentication and authorization."""
 

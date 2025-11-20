@@ -17,22 +17,22 @@ headers {
 
 body:json {
   {
-    "name": "mistral-medium-2505",
-    "sdk": "ChatCompletionsClient",
+    "name": "test model",
+    "sdk": "test",
     "endpoint": "https://myendpoint.com",
-    "apiType": "foundry",
-    "apiVersion": "2024-05-01-preview",
-    "deployment": "mistral-medium-2505",
+    "apiType": "jeeee",
+    "apiVersion": "2025-01-01-preview",
+    "deployment": "gptest",
     "service": "azure-ai",
-    "key": "KEY-MISTRAL-MEDIUM-2505",
+    "key": "KEY-GPTEST",
     "maxToken": 100000,
     "minTemperature": 0,
     "maxTemperature": 1,
     "cost": {
       "tokens": 1000,
       "currency": "USD",
-      "input": 0.0002,
-      "output": 0.0004
+      "input": 1.0000,
+      "output": 1.0000
     }
   }
 }
@@ -52,11 +52,11 @@ tests {
   
   test("Created model has correct properties", function() {
     const model = res.getBody();
-    expect(model.name).to.equal('mistral-medium-2505');
-    expect(model.sdk).to.equal('ChatCompletionsClient');
+    expect(model.name).to.equal('test model');
+    expect(model.sdk).to.equal('test');
     expect(model).to.have.property('model_id');
     expect(model).to.have.property('key');
-    expect(model.key).to.equal('KEY-MISTRAL-MEDIUM-2505');
+    expect(model.key).to.equal('KEY-GPTEST');
     bru.setVar("createdModelId", res.getBody().model_id);
   });
   
@@ -75,4 +75,3 @@ tests {
     expect(model.cost).to.have.property('output');
   });
 }
-

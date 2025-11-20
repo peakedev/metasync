@@ -17,15 +17,14 @@ headers {
 }
 
 script:pre-request {
-  // Wait before checking job status to give worker time to process
-  // This is a simple approach: wait a fixed time, then check
-  const waitTime = 10000; // Wait 30 seconds before checking (adjust based on expected processing time)
+  // Use a proper async delay instead of busy-wait to avoid connection issues
+  const waitTime = 10000; // 10 seconds
   
   console.log(`Waiting ${waitTime / 1000} seconds before checking job status...`);
-  const start = Date.now();
-  while (Date.now() - start < waitTime) {
-    // Busy wait - Bruno doesn't have sleep()
-  }
+  
+  // Create a promise-based delay that doesn't block the event loop
+  await new Promise(resolve => setTimeout(resolve, waitTime));
+  
   console.log(`Wait complete, checking job status...`);
 }
 

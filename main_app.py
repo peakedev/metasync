@@ -7,9 +7,21 @@ import uuid
 from fastapi import FastAPI, Request, Depends
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from api.core.logging import configure_logging, get_logger, RequestLogger
+from api.core.logging import (
+    configure_logging,
+    get_logger,
+    RequestLogger
+)
 from api.core.docs_auth import docs_auth_dependency
-from api.routers import clients, health, prompts, jobs, workers, prompt_flows, models
+from api.routers import (
+    clients,
+    health,
+    prompts,
+    jobs,
+    workers,
+    prompt_flows,
+    models
+)
 from api.services.worker_manager import get_worker_manager
 
 # Configure logging
@@ -29,9 +41,13 @@ app = FastAPI(
 
 # Add correlation ID middleware
 class CorrelationIDMiddleware(BaseHTTPMiddleware):
+    """Middleware to add correlation ID to requests."""
+    
     async def dispatch(self, request: Request, call_next):
         # Generate or extract correlation ID
-        correlation_id = request.headers.get("X-Correlation-ID", str(uuid.uuid4()))
+        correlation_id = request.headers.get(
+            "X-Correlation-ID", str(uuid.uuid4())
+        )
         
         # Add to request state
         request.state.correlation_id = correlation_id
@@ -79,42 +95,52 @@ app.include_router(health.router, tags=["health"])
 app.include_router(prompts.router, prefix="/prompts", tags=["prompts"])
 app.include_router(jobs.router, prefix="/jobs", tags=["jobs"])
 app.include_router(workers.router, prefix="/workers", tags=["workers"])
-app.include_router(prompt_flows.router, prefix="/prompt-flows", tags=["prompt-flows"])
+app.include_router(
+    prompt_flows.router, prefix="/prompt-flows", tags=["prompt-flows"]
+)
 app.include_router(models.router, prefix="/models", tags=["models"])
 
 # Protected documentation endpoints
 @app.get("/docs", dependencies=[Depends(docs_auth_dependency)])
 async def protected_docs():
-    """Protected Swagger UI documentation"""
+    """Protected Swagger UI documentation."""
     from fastapi.openapi.docs import get_swagger_ui_html
-    return get_swagger_ui_html(openapi_url="/openapi.json", title="MetaSync API")
+    return get_swagger_ui_html(
+        openapi_url="/openapi.json", title="MetaSync API"
+    )
 
 @app.get("/redoc", dependencies=[Depends(docs_auth_dependency)])
 async def protected_redoc():
-    """Protected ReDoc documentation"""
+    """Protected ReDoc documentation."""
     from fastapi.openapi.docs import get_redoc_html
-    return get_redoc_html(openapi_url="/openapi.json", title="MetaSync API")
+    return get_redoc_html(
+        openapi_url="/openapi.json", title="MetaSync API"
+    )
 
 @app.get("/openapi.json", dependencies=[Depends(docs_auth_dependency)])
 async def protected_openapi():
-    """Protected OpenAPI schema"""
+    """Protected OpenAPI schema."""
     return app.openapi()
 
 
 @app.on_event("startup")
 async def startup_event():
-    """Initialize WorkerManager on startup"""
+    """Initialize WorkerManager on startup."""
     try:
         manager = get_worker_manager()
         manager.load_workers_from_db()
-        logger.info("WorkerManager initialized and workers loaded from database")
+        logger.info(
+            "WorkerManager initialized and workers loaded from database"
+        )
     except Exception as e:
-        logger.error("Error initializing WorkerManager on startup", error=str(e))
+        logger.error(
+            "Error initializing WorkerManager on startup", error=str(e)
+        )
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    """Stop all workers on shutdown"""
+    """Stop all workers on shutdown."""
     import asyncio
     from utilities.cosmos_connector import ClientManager
     
@@ -127,11 +153,14 @@ async def shutdown_event():
         try:
             await asyncio.wait_for(
                 loop.run_in_executor(None, manager.stop_all_workers),
-                timeout=15.0  # 15 second timeout for stopping workers
+                timeout=15.0  # 15 second timeout
             )
             logger.info("All workers stopped during shutdown")
         except asyncio.TimeoutError:
-            logger.warning("Timeout stopping workers during shutdown - some workers may still be running")
+            logger.warning(
+                "Timeout stopping workers during shutdown - some workers "
+                "may still be running"
+            )
         
         # Close all MongoDB connections
         try:
@@ -139,10 +168,15 @@ async def shutdown_event():
             client_manager.close_all()
             logger.info("All MongoDB connections closed during shutdown")
         except Exception as e:
-            logger.error("Error closing MongoDB connections during shutdown", error=str(e))
+            logger.error(
+                "Error closing MongoDB connections during shutdown",
+                error=str(e)
+            )
             
     except Exception as e:
-        logger.error("Error stopping workers during shutdown", error=str(e))
+        logger.error(
+            "Error stopping workers during shutdown", error=str(e)
+        )
 
 if __name__ == "__main__":
     import uvicorn
@@ -150,10 +184,17 @@ if __name__ == "__main__":
     
     # Kill any existing processes on port 8001
     try:
-        result = subprocess.run(['lsof', '-ti:8001'], capture_output=True, text=True)
+        result = subprocess.run(
+            ['lsof', '-ti:8001'], capture_output=True, text=True
+        )
         if result.stdout.strip():
-            print("⚠️  Found existing processes on port 8001, killing them...")
-            subprocess.run(['kill', '-9'] + result.stdout.strip().split('\n'), check=False)
+            print(
+                "⚠️  Found existing processes on port 8001, killing them..."
+            )
+            subprocess.run(
+                ['kill', '-9'] + result.stdout.strip().split('\n'),
+                check=False
+            )
             import time
             time.sleep(2)
             print("✅ Cleaned up existing processes")

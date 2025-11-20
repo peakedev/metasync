@@ -39,9 +39,16 @@ class PromptService:
         self._cached_client = client_manager.get_valid_client(self._connection_string, self._cached_client)
         return self._cached_client
     
-    def _get_next_version_number(self, name: str, type_name: str, client_id: Optional[str], is_public: bool) -> int:
+    def _get_next_version_number(
+        self,
+        name: str,
+        type_name: str,
+        client_id: Optional[str],
+        is_public: bool
+    ) -> int:
         """
-        Get the next version number for a prompt with given name, type, and client_id.
+        Get the next version number for a prompt.
+        
         For private prompts, only considers versions from the same client.
         For public prompts, considers all public prompts.
         
@@ -59,7 +66,12 @@ class PromptService:
             if is_public:
                 query = {"name": name, "type": type_name, "isPublic": True}
             else:
-                query = {"name": name, "type": type_name, "client_id": client_id, "isPublic": False}
+                query = {
+                    "name": name,
+                    "type": type_name,
+                    "client_id": client_id,
+                    "isPublic": False
+                }
             
             existing_prompts = db_read(
                 self.mongo_client,
@@ -81,11 +93,23 @@ class PromptService:
             
             return max_version + 1
         except Exception as e:
-            logger.error("Error getting next version number", error=str(e), name=name, type=type_name)
+            logger.error(
+                "Error getting next version number",
+                error=str(e),
+                name=name,
+                type=type_name
+            )
             return 1
     
-    def _check_version_uniqueness(self, name: str, type_name: str, version: Union[str, int], 
-                                   client_id: Optional[str], is_public: bool, exclude_id: Optional[str] = None) -> bool:
+    def _check_version_uniqueness(
+        self,
+        name: str,
+        type_name: str,
+        version: Union[str, int],
+        client_id: Optional[str],
+        is_public: bool,
+        exclude_id: Optional[str] = None
+    ) -> bool:
         """
         Check if a version is unique for the given name, type, and client_id.
         

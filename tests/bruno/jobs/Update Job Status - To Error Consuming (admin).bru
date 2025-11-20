@@ -1,0 +1,33 @@
+meta {
+  name: Update Job Status - To Error Consuming (admin)
+  type: http
+  seq: 11
+}
+
+patch {
+  url: {{baseUrl}}/jobs/{{createdJobId}}/full
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  admin_api_key: {{adminApiKey}}
+}
+
+body:json {
+  {
+    "status": "ERROR_CONSUMING"
+  }
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Job status is set to ERROR_CONSUMING", function() {
+    const job = res.getBody();
+    expect(job.status).to.equal('ERROR_CONSUMING');
+  });
+}

@@ -231,14 +231,22 @@ async def toggle_client_enabled(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("Error toggling client enabled status", error=str(e), client_id=client_id)
+        logger.error(
+            "Error toggling client enabled status",
+            error=str(e),
+            client_id=client_id
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to toggle client enabled status"
         )
 
 
-@router.post("/{client_id}/rotate-key", response_model=ClientRotateKeyResponse, status_code=status.HTTP_200_OK)
+@router.post(
+    "/{client_id}/rotate-key",
+    response_model=ClientRotateKeyResponse,
+    status_code=status.HTTP_200_OK
+)
 async def rotate_client_key(
     client_id: str,
     admin_api_key: str = Depends(verify_admin_api_key)
@@ -246,8 +254,9 @@ async def rotate_client_key(
     """
     Rotate a client's API key.
     
-    Generates a new random salt and API key, updates the hash in the database.
-    Returns the new API key once (only returned during this call).
+    Generates a new random salt and API key, updates the hash in
+    the database. Returns the new API key once (only returned during
+    this call).
     """
     try:
         service = get_client_service()

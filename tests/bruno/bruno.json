@@ -1,13 +1,10 @@
 {
   "version": "1",
-  "name": "metasync | Clients API Tests",
+  "name": "metasync | API Test Suite",
   "type": "collection",
   "ignore": [
     "node_modules",
     ".git"
   ]
 }
-
-
-
 

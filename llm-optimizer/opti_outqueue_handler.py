@@ -8,8 +8,11 @@ logger = logging.getLogger(__name__)
 
 def write_run(test_id: str, run_id: str, data: dict, client):
     """
-    Insert or update a nested iteration inside a specific run in the 'runs' collection.
-    - If test_id exists and run exists → push new iteration in runs.$[elem].iterations
+    Insert or update a nested iteration inside a specific run.
+    
+    In the 'runs' collection.
+    - If test_id exists and run exists → push new iteration in
+      runs.$[elem].iterations
     - If test_id exists but run doesn't → append a new run object
     - If test_id doesn't exist → create full document
     """
@@ -39,7 +42,9 @@ def write_run(test_id: str, run_id: str, data: dict, client):
         return new_doc
 
     # Vérifie si le run existe déjà
-    run_exists = any(r.get("run") == run_id for r in test_doc.get("runs", []))
+    run_exists = any(
+        r.get("run") == run_id for r in test_doc.get("runs", [])
+    )
 
     if run_exists:
         # Cas 2: Le run existe → on push une nouvelle itération
@@ -51,7 +56,10 @@ def write_run(test_id: str, run_id: str, data: dict, client):
             },
             array_filters=[{"elem.run": run_id}],
         )
-        logger.info(f"🧩 Added new iteration to existing run '{run_id}' (test_id={test_id})")
+        logger.info(
+            f"🧩 Added new iteration to existing run '{run_id}' "
+            f"(test_id={test_id})"
+        )
         return result
 
     else:
@@ -73,8 +81,9 @@ def write_run(test_id: str, run_id: str, data: dict, client):
 
 def read_output_queue_operations(client: MongoClient):
     """
-    Reads documents from 'jobs' collection where status='PROCESSED'
-    and clientReference.collection='runs'.
+    Reads documents from 'jobs' collection.
+    
+    Where status='PROCESSED' and clientReference.collection='runs'.
     Returns a generator of relevant documents for further processing.
     """
     db = client["poc-llm-processor"]
@@ -95,5 +104,8 @@ def read_output_queue_operations(client: MongoClient):
     cursor = collection.find(query, projection)
 
     results = list(cursor)
-    logger.info(f"📤 Found {len(results)} processed items in jobs collection ready for next step.")
+    logger.info(
+        f"📤 Found {len(results)} processed items in jobs collection "
+        f"ready for next step."
+    )
     return results

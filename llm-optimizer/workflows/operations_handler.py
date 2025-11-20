@@ -62,22 +62,27 @@ def process_operation(operation: Dict[str, Any], client) -> None:
     try:
         # Create operation context
         # Support both old "data" and new "responseData" field names
-        response_data = operation.get("responseData", operation.get("data", {}))
+        response_data = operation.get(
+            "responseData", operation.get("data", {})
+        )
+        client_ref = operation.get("clientReference", {})
         context = OperationContext(
-            operation_type=OperationType(operation.get("clientReference", {}).get("operation")),
-            client_reference=operation.get("clientReference", {}),
+            operation_type=OperationType(client_ref.get("operation")),
+            client_reference=client_ref,
             data=response_data,
-            models=operation.get("clientReference", {}).get("models", {}),
-            iteration=operation.get("clientReference", {}).get("iteration", 0),
-            max_iteration=operation.get("clientReference", {}).get("max_iteration", 0),
-            test_id=operation.get("clientReference", {}).get("test_id"),
-            run_id=operation.get("clientReference", {}).get("run_id"),
-            qid=operation.get("clientReference", {}).get("qid")
+            models=client_ref.get("models", {}),
+            iteration=client_ref.get("iteration", 0),
+            max_iteration=client_ref.get("max_iteration", 0),
+            test_id=client_ref.get("test_id"),
+            run_id=client_ref.get("run_id"),
+            qid=client_ref.get("qid")
         )
 
         # Validate operation
         if not validate_operation(context):
-            raise ValueError(f"Invalid operation context for {context.operation_type}")
+            raise ValueError(
+                f"Invalid operation context for {context.operation_type}"
+            )
 
         # Process based on type
         handlers = {
@@ -88,7 +93,9 @@ def process_operation(operation: Dict[str, Any], client) -> None:
 
         handler = handlers.get(context.operation_type)
         if not handler:
-            raise ValueError(f"Unknown operation type: {context.operation_type}")
+            raise ValueError(
+                f"Unknown operation type: {context.operation_type}"
+            )
 
         handler(context, client)
 

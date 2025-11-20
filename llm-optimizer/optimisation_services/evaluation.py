@@ -44,15 +44,19 @@ def prepare_assessment_variables(
     """Prepare variables for assessment based on evaluation type."""
     if eval_param["evalType"] == EvalType.STYLE.value and rendered:
         rendered_output = render_text(output_json)
-        return {
-            "output": rendered_output,
-            "evalVariables": json.dumps(eval_param["evalVariables"], ensure_ascii=False, indent=2)
-        }
+    return {
+        "output": rendered_output,
+        "evalVariables": json.dumps(
+            eval_param["evalVariables"], ensure_ascii=False, indent=2
+        )
+    }
 
     return {
         "original": json.dumps(original, ensure_ascii=False, indent=2),
         "output": json.dumps(output_json, ensure_ascii=False, indent=2),
-        "evalVariables": json.dumps(eval_param["evalVariables"], ensure_ascii=False, indent=2)
+        "evalVariables": json.dumps(
+            eval_param["evalVariables"], ensure_ascii=False, indent=2
+        )
     }
 
 def run_single_assessment(

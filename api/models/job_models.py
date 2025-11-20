@@ -51,6 +51,29 @@ class JobUpdateRequest(BaseModel):
     clientReference: Optional[Dict[str, Any]] = Field(None, description="Free JSON object for client reference")
 
 
+class JobBatchUpdateItem(BaseModel):
+    """Single job update item for batch operations"""
+    jobId: str = Field(..., description="Job ID to update")
+    status: Optional[JobStatus] = Field(None, description="New job status")
+    operation: Optional[str] = Field(None, description="Operation type")
+    prompts: Optional[List[str]] = Field(None, description="List of prompt IDs")
+    model: Optional[str] = Field(None, description="Model name")
+    temperature: Optional[float] = Field(None, description="Temperature between 0 and 1", ge=0.0, le=1.0)
+    priority: Optional[int] = Field(None, description="Priority between 1 and 1000", ge=1, le=1000)
+    requestData: Optional[Dict[str, Any]] = Field(None, description="Free JSON object to be sent to LLM")
+    clientReference: Optional[Dict[str, Any]] = Field(None, description="Free JSON object for client reference")
+
+
+class JobBatchUpdateRequest(BaseModel):
+    """Request model for updating multiple jobs at once"""
+    jobs: List[JobBatchUpdateItem] = Field(..., description="List of jobs to update", min_items=1)
+
+
+class JobBatchDeleteRequest(BaseModel):
+    """Request model for deleting multiple jobs at once"""
+    jobIds: List[str] = Field(..., description="List of job IDs to delete", min_items=1)
+
+
 class JobResponse(BaseModel):
     """Response model for job data"""
     jobId: str = Field(..., description="Unique job identifier (MongoDB _id)")

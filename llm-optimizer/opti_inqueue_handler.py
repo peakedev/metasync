@@ -35,13 +35,17 @@ def build_client_reference(
         raise ValueError(f"No document found with test_id={test_id}")
 
     # Locate the run object (combi)
-    run_data = next((r for r in run_doc.get("runs", []) if r.get("run") == run_id), None)
+    run_data = next(
+        (r for r in run_doc.get("runs", []) if r.get("run") == run_id),
+        None
+    )
     if not run_data:
         raise ValueError(f"No run found with run_id={run_id}")
 
     # Attempt to extract existing iteration metadata if available
     previous_iteration = None
-    if iteration_index > 0 and iteration_index <= len(run_data.get("iterations", [])):
+    iterations = run_data.get("iterations", [])
+    if iteration_index > 0 and iteration_index <= len(iterations):
         previous_iteration = run_data["iterations"][iteration_index - 1]
 
     # ✅ Unified structure aligned with your StateMachine logic
@@ -71,12 +75,21 @@ def build_client_reference(
         "input_path": previous_iteration.get("input_path") if previous_iteration else None,
 
         # --- Links between iterations ---
-        "previous_qid": f"{test_id}_{run_id}_{iteration_index - 1}" if iteration_index > 0 else None,
-        "previous_prompt": previous_iteration.get("last_input_prompt") if previous_iteration else None,
+        "previous_qid": (
+            f"{test_id}_{run_id}_{iteration_index - 1}"
+            if iteration_index > 0 else None
+        ),
+        "previous_prompt": (
+            previous_iteration.get("last_input_prompt")
+            if previous_iteration else None
+        ),
 
         # --- Results placeholders ---
-        "placeholders":
-        {   "previous_input_prompt": previous_iteration.get("last_input_prompt") if previous_iteration else None,
+        "placeholders": {
+            "previous_input_prompt": (
+                previous_iteration.get("last_input_prompt")
+                if previous_iteration else None
+            ),
             "improved_input_prompt": None,
             "input_text": input_text,
             "output_json": None,
