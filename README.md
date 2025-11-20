@@ -18,25 +18,17 @@ The Metasync Docker image is available on Docker Hub:
 
 In time, we want to add a layer of abstraction to allow orchestration of many LLM tasks, automated handling of model rate limiters, built-in multi-provider failover routing, evaluation pipelines, and long-running background jobs.
 
-## 0.2.0 To Dos
-- Ensure running workers restart on pod deploy/restart
-- Multi worker create/start/stop/delete
-- Multi job patch/delete
-- Self-contained testing with Mongo Container and DB Seed (/test/mongo)
-- Remove tests/shell
-- Add auto bruno regression when building
-
 # 0.3.0 To Dos
 - Describe usage better
 - Describe how to extend
-- Properly modularise LLM client config to let users add LLM clients easily
+- ~~Properly modularise LLM client config to let users add LLM clients easily~~ ✅ **Completed**
 - Add a sync API for testing and quick access to models
 
 # 1.0.0
 - Full stable API with more edge-case before graduating to 1.0
-- Address statelessness & challenge with multithreaded workers defined within the replicas
+- Address statelessness & challenges with multithreaded workers defined within the replicas
 - Ensure the llm-optimiser functionalities are fully API enabled and working in the framework
-- Chain or Embed the evaluation step (optionally) separately from the llm-optimizer but still compatible with the optimization routines
+- Chain or Embed the evaluation step (optionally) separately from the llm_optimizer but still compatible with the optimization routines
 - Control on rate limiting
 - Control on cost & cost estimates
 
@@ -79,7 +71,7 @@ In time, we want to add a layer of abstraction to allow orchestration of many LL
 │       ├── prompt_service.py
 │       ├── worker_manager.py
 │       └── worker_service.py
-├── llm-optimizer/
+├── llm_optimizer/
 │   ├── opti_inqueue_handler.py
 │   ├── opti_outqueue_handler.py
 │   ├── opti_prompt_handler.py
@@ -95,13 +87,22 @@ In time, we want to add a layer of abstraction to allow orchestration of many LL
 │       ├── init_runner.py
 │       ├── iteration_runner_workers.py
 │       └── operations_handler.py
-├── llm-workers/
+├── llm_sdks/
+│   ├── __init__.py
+│   ├── base_sdk.py          # Abstract base class for SDK plugins
+│   ├── registry.py           # Auto-discovery and registration
+│   ├── ChatCompletionsClient.py  # Azure AI Inference SDK
+│   ├── AzureOpenAI.py        # Azure OpenAI SDK
+│   ├── Anthropic.py          # Anthropic Claude SDK
+│   ├── test.py               # Mock/test SDK
+│   └── README.md             # SDK development guide
+├── llm_workers/
 │   └── llm_queue_worker.py
 ├── utilities/
 │   ├── cosmos_connector.py
 │   ├── json_repair.py
 │   ├── keyring_handler.py
-│   └── llm_connector.py
+│   └── llm_connector.py      # SDK dispatcher
 ├── tests/
 │   ├── bruno/
 │   └── shell/
@@ -112,6 +113,45 @@ In time, we want to add a layer of abstraction to allow orchestration of many LL
 ├── main_app.py
 └── requirements.txt
 ```
+
+## LLM SDK Plugin Architecture
+
+Metasync uses a modular, plugin-based architecture for LLM SDK integrations. Each SDK is implemented as a separate plugin in the `llm_sdks/` directory.
+
+### Supported SDKs
+
+- **ChatCompletionsClient** - Azure AI Inference SDK
+- **AzureOpenAI** - Azure OpenAI via official OpenAI SDK
+- **Anthropic** - Anthropic Claude with streaming support
+- **test** - Mock SDK for testing (no API calls)
+
+### Key Features
+
+- **Auto-Discovery** - New SDKs are automatically discovered by scanning `llm_sdks/`
+- **Zero Configuration** - No need to modify core code when adding SDKs
+- **SDK-Specific Validation** - Each SDK validates its own configuration requirements
+- **PEP8 Compliant** - All SDK code follows strict Python style guidelines
+- **Modular & Testable** - Each SDK is self-contained and independently testable
+
+### Adding a New SDK
+
+To add support for a new LLM provider:
+
+1. Create a new file in `llm_sdks/` named after your SDK (e.g., `MySdk.py`)
+2. Inherit from `BaseLLMSDK` and implement three required methods:
+   - `get_name()` - Returns the SDK identifier
+   - `validate_config(config)` - Validates SDK-specific requirements
+   - `complete(...)` - Executes the completion request
+3. Your SDK will be automatically discovered and available
+
+See `llm_sdks/README.md` for a comprehensive guide with examples.
+
+### Architecture Benefits
+
+- **Extensibility** - Add new SDKs without touching core code
+- **Maintainability** - SDK-specific logic isolated in individual files
+- **Backward Compatibility** - Existing SDKs and models unchanged
+- **Type Safety** - Abstract base class ensures consistent interface
 
 ## Environment Variables
 
@@ -137,6 +177,8 @@ Model API keys are loaded dynamically based on models stored in the database. Ea
 **{MODEL_NAME}_KEY** — Where `MODEL_NAME` is converted to uppercase with special characters replaced (e.g., `"gpt-4"` becomes `GPT_4_KEY`)
 
 These are referenced in `config.py` when models are loaded from the database.
+
+**Note:** The test SDK does not require an API key and can be used for testing without credentials.
 
 ### Summary for docker-compose
 

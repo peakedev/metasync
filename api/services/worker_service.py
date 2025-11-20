@@ -339,6 +339,99 @@ class WorkerService:
         
         return success
     
+    def get_workers_summary(
+        self,
+        client_id: Optional[str] = None,
+        is_admin: bool = False,
+        model_filter: Optional[str] = None,
+        operation_filter: Optional[str] = None,
+        client_reference_filters: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        Get summary of workers with counts and IDs by status, with optional filtering.
+        
+        Args:
+            client_id: Client ID (required if not admin)
+            is_admin: Whether the requester is an admin
+            model_filter: Optional filter by config.modelFilter
+            operation_filter: Optional filter by config.operationFilter
+            client_reference_filters: Optional dict of filters for config.clientReferenceFilters fields
+                e.g., {"randomProp": "hello"} will filter where config.clientReferenceFilters.randomProp == "hello"
+            
+        Returns:
+            Dictionary with counts by status, total count, and lists of IDs by status
+        """
+        business_logger.log_operation("worker_service", "get_workers_summary", client_id=client_id, is_admin=is_admin)
+        
+        # Build query
+        if is_admin:
+            query = {}
+        else:
+            if not client_id:
+                raise ValueError("Client ID is required for non-admin users")
+            query = {"clientId": client_id}
+        
+        # Add filters for nested config fields
+        if model_filter:
+            query["config.modelFilter"] = model_filter
+        
+        if operation_filter:
+            query["config.operationFilter"] = operation_filter
+        
+        # Add clientReferenceFilters filters (nested field filtering)
+        if client_reference_filters:
+            for key, value in client_reference_filters.items():
+                query[f"config.clientReferenceFilters.{key}"] = value
+        
+        # Use aggregation to group by status and collect IDs
+        db = self.mongo_client[self.db_name]
+        collection = db[self.collection_name]
+        
+        # Build aggregation pipeline
+        pipeline = [
+            {"$match": query},
+            {"$match": {"_metadata.isDeleted": {"$ne": True}}},  # Exclude soft-deleted
+            {
+                "$group": {
+                    "_id": "$status",
+                    "count": {"$sum": 1},
+                    "worker_ids": {"$push": {"$toString": "$_id"}}
+                }
+            }
+        ]
+        
+        try:
+            results = list(collection.aggregate(pipeline))
+            
+            # Initialize summary with all statuses
+            summary = {
+                WorkerStatus.RUNNING.value: 0,
+                WorkerStatus.STOPPED.value: 0,
+                WorkerStatus.ERROR.value: 0,
+                "total": 0,
+                f"{WorkerStatus.RUNNING.value}_ids": [],
+                f"{WorkerStatus.STOPPED.value}_ids": [],
+                f"{WorkerStatus.ERROR.value}_ids": []
+            }
+            
+            # Populate counts and IDs from aggregation results
+            for result in results:
+                status = result.get("_id")
+                count = result.get("count", 0)
+                worker_ids = result.get("worker_ids", [])
+                
+                if status in [WorkerStatus.RUNNING.value, WorkerStatus.STOPPED.value, WorkerStatus.ERROR.value]:
+                    summary[status] = count
+                    summary[f"{status}_ids"] = worker_ids
+                    summary["total"] += count
+            
+            logger.info("Workers summary retrieved", total=summary["total"], client_id=client_id, is_admin=is_admin)
+            return summary
+            
+        except Exception as e:
+            logger.error("Error getting workers summary", error=str(e), client_id=client_id)
+            raise RuntimeError(f"Failed to get workers summary: {str(e)}")
+    
     def _format_worker_response(self, worker: Dict[str, Any]) -> Dict[str, Any]:
         """
         Format a worker document for API response.

@@ -1,0 +1,32 @@
+meta {
+  name: Error Unauthorized Summary
+  type: http
+  seq: 12
+}
+
+get {
+  url: {{baseUrl}}/workers/summary
+  body: none
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+tests {
+  test("Status code is 401", function() {
+    expect(res.getStatus()).to.equal(401);
+  });
+  
+  test("Response has error detail", function() {
+    expect(res.getBody()).to.be.an('object');
+    expect(res.getBody()).to.have.property('detail');
+  });
+  
+  test("Error message mentions authentication", function() {
+    const body = res.getBody();
+    expect(body.detail.toLowerCase()).to.include('authentication');
+  });
+}
+
