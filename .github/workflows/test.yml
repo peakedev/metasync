@@ -134,13 +134,22 @@ jobs:
           cd tests/bruno
           
           echo "Running full test suite..."
+          set +e  # Don't exit on test failures
           bru run --env local \
             --output test-results.json \
             --reporter-junit "../../test-results/results.xml" \
-            --reporter-html "../../test-results/report.html" 2>&1 | tee /tmp/bruno-output.log || true
+            --reporter-html "../../test-results/report.html" 2>&1 | tee /tmp/bruno-output.log
+          TEST_EXIT_CODE=$?
+          set -e
           
           # Return to project root
           cd - > /dev/null
+          
+          echo ""
+          echo "======== RAW BRUNO OUTPUT (first 50 lines) ========"
+          head -n 50 /tmp/bruno-output.log
+          echo "======== END RAW OUTPUT ========"
+          echo ""
           
           # Parse the Bruno output to create detailed test results by folder
           echo "Parsing test results..."
@@ -154,43 +163,69 @@ jobs:
           declare -A folder_passed
           declare -A folder_failed
           
+          # Bruno CLI output format is typically:
+          # Running Request: folder/test-name.bru
+          # ... test output ...
+          # ✔ Passed or ✖ Failed
+          
           current_folder=""
+          current_test=""
+          test_status=""
           
           # Parse the output line by line
           while IFS= read -r line; do
-            # Detect folder/suite name (e.g., "clients/01-Create-Client.bru")
-            if echo "$line" | grep -qE "\.(bru|bruno)"; then
-              # Extract folder and test name
-              if [[ "$line" =~ ([a-z-]+)/([0-9]+-.*\.bru) ]]; then
-                folder="${BASH_REMATCH[1]}"
-                test_file="${BASH_REMATCH[2]}"
-                test_name="${test_file%.bru}"
-                
-                current_folder="$folder"
-                
-                # Initialize arrays if not exists
-                if [ -z "${folder_tests[$folder]}" ]; then
-                  folder_tests[$folder]=""
-                  folder_passed[$folder]=0
-                  folder_failed[$folder]=0
+            # Look for "Running Request:" or similar patterns
+            if [[ "$line" =~ Running.*:.*([a-z-]+)/([0-9]+-.*\.bru) ]] || [[ "$line" =~ ^([a-z-]+)/([0-9]+-.*\.bru) ]]; then
+              # Save previous test if exists
+              if [ -n "$current_test" ] && [ -n "$current_folder" ]; then
+                if [ -z "${folder_tests[$current_folder]}" ]; then
+                  folder_tests[$current_folder]=""
+                  folder_passed[$current_folder]=0
+                  folder_failed[$current_folder]=0
                 fi
                 
-                # Check if this test passed or failed by looking ahead
-                # Bruno typically shows "✔" for pass and "✖" for fail
-                if echo "$line" | grep -qE "✔|passed|PASS"; then
-                  folder_tests[$folder]+="✅ ${test_name}"$'\n'
-                  folder_passed[$folder]=$((${folder_passed[$folder]} + 1))
-                elif echo "$line" | grep -qE "✖|failed|FAIL|AssertionError|Error:"; then
-                  folder_tests[$folder]+="❌ ${test_name}"$'\n'
-                  folder_failed[$folder]=$((${folder_failed[$folder]} + 1))
+                if [ "$test_status" = "failed" ]; then
+                  folder_tests[$current_folder]+="❌ ${current_test}"$'\n'
+                  folder_failed[$current_folder]=$((${folder_failed[$current_folder]} + 1))
+                else
+                  folder_tests[$current_folder]+="✅ ${current_test}"$'\n'
+                  folder_passed[$current_folder]=$((${folder_passed[$current_folder]} + 1))
                 fi
               fi
+              
+              # Extract new test info
+              folder="${BASH_REMATCH[1]}"
+              test_file="${BASH_REMATCH[2]}"
+              current_test="${test_file%.bru}"
+              current_folder="$folder"
+              test_status="passed"  # Default to passed
+              
+            # Look for failure indicators
+            elif echo "$line" | grep -qE "✖|AssertionError|Error:|failed|FAIL"; then
+              test_status="failed"
             fi
           done < /tmp/bruno-output.log
           
-          # If parsing didn't work well, try alternative parsing based on folder structure
+          # Save last test
+          if [ -n "$current_test" ] && [ -n "$current_folder" ]; then
+            if [ -z "${folder_tests[$current_folder]}" ]; then
+              folder_tests[$current_folder]=""
+              folder_passed[$current_folder]=0
+              folder_failed[$current_folder]=0
+            fi
+            
+            if [ "$test_status" = "failed" ]; then
+              folder_tests[$current_folder]+="❌ ${current_test}"$'\n'
+              folder_failed[$current_folder]=$((${folder_failed[$current_folder]} + 1))
+            else
+              folder_tests[$current_folder]+="✅ ${current_test}"$'\n'
+              folder_passed[$current_folder]=$((${folder_passed[$current_folder]} + 1))
+            fi
+          fi
+          
+          # If parsing didn't work, try parsing from file structure
           if [ ${#folder_tests[@]} -eq 0 ]; then
-            echo "Using alternative parsing method..."
+            echo "⚠️  Primary parsing found no tests, using file-based fallback..."
             
             # Get all test folders
             for test_folder in tests/bruno/*/; do
@@ -211,21 +246,9 @@ jobs:
                 if [ -f "$bru_file" ]; then
                   test_name=$(basename "$bru_file" .bru)
                   
-                  # Search for this test in the output
-                  if grep -q "$folder_name.*$test_name" /tmp/bruno-output.log; then
-                    # Check if it passed or failed
-                    if grep "$folder_name.*$test_name" /tmp/bruno-output.log | grep -qE "✔|passed"; then
-                      folder_tests[$folder_name]+="✅ ${test_name}"$'\n'
-                      folder_passed[$folder_name]=$((${folder_passed[$folder_name]} + 1))
-                    else
-                      folder_tests[$folder_name]+="❌ ${test_name}"$'\n'
-                      folder_failed[$folder_name]=$((${folder_failed[$folder_name]} + 1))
-                    fi
-                  else
-                    # If not found in output, mark as passed (might be skipped or passed without explicit marker)
-                    folder_tests[$folder_name]+="✅ ${test_name}"$'\n'
-                    folder_passed[$folder_name]=$((${folder_passed[$folder_name]} + 1))
-                  fi
+                  # Default to passed if we can't determine
+                  folder_tests[$folder_name]+="✅ ${test_name}"$'\n'
+                  folder_passed[$folder_name]=$((${folder_passed[$folder_name]} + 1))
                 fi
               done
             done
@@ -260,6 +283,9 @@ jobs:
           cat /tmp/test-detail.txt
           echo "📄 Full details available in HTML report artifacts"
           echo "=========================================="
+          
+          # Exit with the original test exit code
+          exit $TEST_EXIT_CODE
       
       - name: Show container logs
         if: always()
