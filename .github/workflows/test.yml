@@ -136,14 +136,30 @@ jobs:
           echo "Running full test suite..."
           set +e  # Don't exit on test failures
           bru run --env local \
-            --output test-results.json \
-            --reporter-junit "../../test-results/results.xml" \
-            --reporter-html "../../test-results/report.html" 2>&1 | tee /tmp/bruno-output.log
+            --output ../../test-results/test-results.json \
+            --junit ../../test-results/results.xml \
+            --html ../../test-results/report.html 2>&1 | tee /tmp/bruno-output.log
           TEST_EXIT_CODE=$?
           set -e
           
           # Return to project root
           cd - > /dev/null
+          
+          # Check if XML was generated
+          echo ""
+          echo "======== CHECKING JUNIT XML ========"
+          if [ -f test-results/results.xml ]; then
+            echo "✅ JUnit XML file exists"
+            echo "File size: $(wc -c < test-results/results.xml) bytes"
+            echo "First 30 lines:"
+            head -n 30 test-results/results.xml
+          else
+            echo "❌ JUnit XML file NOT found at test-results/results.xml"
+            echo "Files in test-results:"
+            ls -la test-results/ || echo "test-results directory doesn't exist"
+          fi
+          echo "======== END JUNIT XML CHECK ========"
+          echo ""
           
           echo ""
           echo "======== RAW BRUNO OUTPUT (first 50 lines) ========"
@@ -255,8 +271,15 @@ jobs:
           fi
           
           # Generate summary and detail files
+          total_all_tests=0
+          total_all_passed=0
+          total_all_failed=0
+          
           for folder in "${!folder_tests[@]}"; do
             total_tests=$((${folder_passed[$folder]} + ${folder_failed[$folder]}))
+            total_all_tests=$((total_all_tests + total_tests))
+            total_all_passed=$((total_all_passed + ${folder_passed[$folder]}))
+            total_all_failed=$((total_all_failed + ${folder_failed[$folder]}))
             
             if [ ${folder_failed[$folder]} -eq 0 ] && [ $total_tests -gt 0 ]; then
               echo "✅ ${folder} (${folder_passed[$folder]}/${total_tests})" >> /tmp/test-summary.txt
@@ -270,6 +293,48 @@ jobs:
             echo "${folder_tests[$folder]}" >> /tmp/test-detail.txt
             echo "---" >> /tmp/test-detail.txt
           done
+          
+          # Generate JUnit XML if Bruno didn't create one
+          if [ ! -f test-results/results.xml ] || [ ! -s test-results/results.xml ]; then
+            echo "Generating JUnit XML manually..."
+            
+            cat > test-results/results.xml << XML_HEADER
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites tests="${total_all_tests}" failures="${total_all_failed}" errors="0" time="0">
+XML_HEADER
+            
+            # Add test suites for each folder
+            for folder in "${!folder_tests[@]}"; do
+              total_tests=$((${folder_passed[$folder]} + ${folder_failed[$folder]}))
+              
+              cat >> test-results/results.xml << XML_SUITE
+  <testsuite name="${folder}" tests="${total_tests}" failures="${folder_failed[$folder]}" errors="0" time="0">
+XML_SUITE
+              
+              # Parse individual tests and add them
+              while IFS= read -r test_line; do
+                if [ -n "$test_line" ]; then
+                  if [[ "$test_line" =~ ^✅[[:space:]](.+)$ ]]; then
+                    test_name="${BASH_REMATCH[1]}"
+                    echo "    <testcase name=\"${test_name}\" classname=\"${folder}\" time=\"0\"/>" >> test-results/results.xml
+                  elif [[ "$test_line" =~ ^❌[[:space:]](.+)$ ]]; then
+                    test_name="${BASH_REMATCH[1]}"
+                    cat >> test-results/results.xml << XML_FAIL
+    <testcase name="${test_name}" classname="${folder}" time="0">
+      <failure message="Test failed">Test assertion failed</failure>
+    </testcase>
+XML_FAIL
+                  fi
+                fi
+              done <<< "${folder_tests[$folder]}"
+              
+              echo "  </testsuite>" >> test-results/results.xml
+            done
+            
+            echo "</testsuites>" >> test-results/results.xml
+            
+            echo "✅ Generated JUnit XML with ${total_all_tests} tests (${total_all_passed} passed, ${total_all_failed} failed)"
+          fi
           
           echo ""
           echo "=========================================="
