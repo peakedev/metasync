@@ -106,7 +106,8 @@ class RunService:
         for model in working_models:
             model_runs.append({
                 "model": model,
-                "iterations": []
+                "iterations": [],
+                "processingMetrics": None
             })
         
         # Create run document
@@ -126,7 +127,8 @@ class RunService:
             "currentModelIndex": 0,
             "currentIteration": 0,
             "currentJobId": None,
-            "modelRuns": model_runs
+            "modelRuns": model_runs,
+            "processingMetrics": None
         }
         
         # Save to database

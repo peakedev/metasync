@@ -16,6 +16,33 @@ class RunStatus(str, Enum):
     CANCELLED = "CANCELLED"
 
 
+class ProcessingMetrics(BaseModel):
+    """Processing metrics for token usage and costs"""
+    inputTokens: int = Field(0, description="Total input tokens")
+    outputTokens: int = Field(0, description="Total output tokens")
+    totalTokens: int = Field(0, description="Total tokens (input + output)")
+    duration: float = Field(0.0, description="Processing duration in seconds")
+    inputCost: float = Field(0.0, description="Input cost")
+    outputCost: float = Field(0.0, description="Output cost")
+    totalCost: float = Field(0.0, description="Total cost (input + output)")
+    currency: str = Field("USD", description="Currency code")
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "inputTokens": 1500,
+                "outputTokens": 500,
+                "totalTokens": 2000,
+                "duration": 3.5,
+                "inputCost": 0.015,
+                "outputCost": 0.025,
+                "totalCost": 0.04,
+                "currency": "USD"
+            }
+        }
+    )
+
+
 class IterationResult(BaseModel):
     """Result from a single iteration"""
     iteration: int = Field(..., description="Iteration number (0-indexed)")
@@ -24,6 +51,7 @@ class IterationResult(BaseModel):
     status: str = Field(..., description="Job status")
     evalResult: Optional[Dict[str, Any]] = Field(None, description="Evaluation result if available")
     suggestedPromptId: Optional[str] = Field(None, description="Suggested prompt ID from meta step if available")
+    processingMetrics: Optional[ProcessingMetrics] = Field(None, description="Processing metrics for this iteration")
     
     model_config = ConfigDict(
         json_schema_extra={
@@ -33,7 +61,17 @@ class IterationResult(BaseModel):
                 "workingPromptId": "507f1f77bcf86cd799439012",
                 "status": "PROCESSED",
                 "evalResult": {"score": 8.5, "feedback": "Good translation"},
-                "suggestedPromptId": "507f1f77bcf86cd799439013"
+                "suggestedPromptId": "507f1f77bcf86cd799439013",
+                "processingMetrics": {
+                    "inputTokens": 1500,
+                    "outputTokens": 500,
+                    "totalTokens": 2000,
+                    "duration": 3.5,
+                    "inputCost": 0.015,
+                    "outputCost": 0.025,
+                    "totalCost": 0.04,
+                    "currency": "USD"
+                }
             }
         }
     )
@@ -43,6 +81,7 @@ class ModelRun(BaseModel):
     """Results from running all iterations with a specific model"""
     model: str = Field(..., description="Model name")
     iterations: List[IterationResult] = Field(default_factory=list, description="List of iteration results")
+    processingMetrics: Optional[ProcessingMetrics] = Field(None, description="Aggregated processing metrics for this model")
     
     model_config = ConfigDict(
         json_schema_extra={
@@ -57,7 +96,17 @@ class ModelRun(BaseModel):
                         "evalResult": {"score": 8.5},
                         "suggestedPromptId": "507f1f77bcf86cd799439013"
                     }
-                ]
+                ],
+                "processingMetrics": {
+                    "inputTokens": 3000,
+                    "outputTokens": 1000,
+                    "totalTokens": 4000,
+                    "duration": 7.0,
+                    "inputCost": 0.03,
+                    "outputCost": 0.05,
+                    "totalCost": 0.08,
+                    "currency": "USD"
+                }
             }
         }
     )
@@ -127,6 +176,7 @@ class RunResponse(BaseModel):
     currentJobId: Optional[str] = Field(None, description="Current job ID being processed")
     failureReason: Optional[str] = Field(None, description="Reason for failure if status is FAILED")
     modelRuns: List[ModelRun] = Field(default_factory=list, description="Results for each model")
+    processingMetrics: Optional[ProcessingMetrics] = Field(None, description="Aggregated processing metrics for entire run")
     metadata: Dict[str, Any] = Field(..., alias="_metadata", description="Metadata object with createdAt, updatedAt, etc.")
     
     model_config = ConfigDict(

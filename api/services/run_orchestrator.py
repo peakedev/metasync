@@ -198,6 +198,21 @@ class RunOrchestrator:
         current_model_index = run["currentModelIndex"]
         current_iteration = run["currentIteration"]
         
+        # Extract processing metrics from job
+        job_metrics = job.get("processingMetrics", {})
+        iteration_metrics = None
+        if job_metrics:
+            iteration_metrics = {
+                "inputTokens": job_metrics.get("inputTokens", 0),
+                "outputTokens": job_metrics.get("outputTokens", 0),
+                "totalTokens": job_metrics.get("totalTokens", 0),
+                "duration": job_metrics.get("duration", 0.0),
+                "inputCost": job_metrics.get("inputCost", 0.0),
+                "outputCost": job_metrics.get("outputCost", 0.0),
+                "totalCost": job_metrics.get("totalCost", 0.0),
+                "currency": job_metrics.get("currency", "USD")
+            }
+        
         # Extract iteration result from job
         iteration_result = {
             "iteration": current_iteration,
@@ -205,7 +220,8 @@ class RunOrchestrator:
             "workingPromptId": job.get("workingPrompts", job.get("prompts", []))[0] if job.get("workingPrompts", job.get("prompts")) else None,
             "status": job.get("status"),
             "evalResult": job.get("evalResult"),
-            "suggestedPromptId": job.get("suggestedPromptId")
+            "suggestedPromptId": job.get("suggestedPromptId"),
+            "processingMetrics": iteration_metrics
         }
         
         # Update run document to add this iteration result
@@ -216,13 +232,29 @@ class RunOrchestrator:
             iterations.append(iteration_result)
             model_runs[current_model_index]["iterations"] = iterations
             
+            # Aggregate metrics for this model run
+            model_metrics = self._aggregate_metrics([iter_res.get("processingMetrics") for iter_res in iterations if iter_res.get("processingMetrics")])
+            if model_metrics:
+                model_runs[current_model_index]["processingMetrics"] = model_metrics
+            
+            # Aggregate metrics for entire run (all models)
+            all_iterations = []
+            for model_run in model_runs:
+                all_iterations.extend(model_run.get("iterations", []))
+            
+            run_metrics = self._aggregate_metrics([iter_res.get("processingMetrics") for iter_res in all_iterations if iter_res.get("processingMetrics")])
+            
             # Update the run document
+            update_data = {"modelRuns": model_runs}
+            if run_metrics:
+                update_data["processingMetrics"] = run_metrics
+            
             db_update(
                 self.mongo_client,
                 self.db_name,
                 "runs",
                 run_id,
-                {"modelRuns": model_runs}
+                update_data
             )
             
             logger.info(
@@ -251,6 +283,36 @@ class RunOrchestrator:
                 error=str(e)
             )
             self._mark_run_failed(run_id, f"Failed to advance run: {str(e)}")
+    
+    def _aggregate_metrics(self, metrics_list: list) -> Optional[Dict[str, Any]]:
+        """
+        Aggregate a list of processing metrics into a single metrics object.
+        
+        Args:
+            metrics_list: List of processing metrics dictionaries
+            
+        Returns:
+            Aggregated metrics or None if no metrics available
+        """
+        # Filter out None values
+        valid_metrics = [m for m in metrics_list if m is not None]
+        
+        if not valid_metrics:
+            return None
+        
+        # Aggregate
+        aggregated = {
+            "inputTokens": sum(m.get("inputTokens", 0) for m in valid_metrics),
+            "outputTokens": sum(m.get("outputTokens", 0) for m in valid_metrics),
+            "totalTokens": sum(m.get("totalTokens", 0) for m in valid_metrics),
+            "duration": sum(m.get("duration", 0.0) for m in valid_metrics),
+            "inputCost": sum(m.get("inputCost", 0.0) for m in valid_metrics),
+            "outputCost": sum(m.get("outputCost", 0.0) for m in valid_metrics),
+            "totalCost": sum(m.get("totalCost", 0.0) for m in valid_metrics),
+            "currency": valid_metrics[0].get("currency", "USD")  # Use first currency
+        }
+        
+        return aggregated
     
     def _mark_run_failed(self, run_id: str, error_message: str):
         """
