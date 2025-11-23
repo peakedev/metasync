@@ -143,8 +143,16 @@ class RunService:
         
         logger.info("Run created successfully", run_id=db_id, client_id=client_id)
         
-        # Get the created run
-        run = self.get_run_by_id(db_id, client_id)
+        # Get the created run (raw document for internal processing)
+        run = get_document_by_id(
+            self.mongo_client,
+            self.db_name,
+            self.collection_name,
+            db_id
+        )
+        
+        if not run:
+            raise RuntimeError(f"Failed to retrieve created run: {db_id}")
         
         # Seed the first job and update run status to RUNNING
         try:
