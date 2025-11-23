@@ -17,7 +17,7 @@ from api.models.run_models import RunStatus
 from api.models.job_models import JobStatus
 from api.services.run_service import get_run_service
 
-logger = get_logger("api.services.run_orchestrator")
+logger = get_logger("llm_optimizers.run_orchestrator")
 
 
 class RunOrchestrator:

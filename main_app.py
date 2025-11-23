@@ -27,7 +27,7 @@ from api.routers import (
     runs
 )
 from api.services.worker_manager import get_worker_manager
-from api.services.run_orchestrator import get_run_orchestrator
+from llm_optimizers import get_run_orchestrator
 
 # Configure logging
 configure_logging()
