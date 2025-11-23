@@ -53,7 +53,7 @@ class RunService:
     def create_run(
         self,
         client_id: str,
-        initial_working_prompt_id: str,
+        initial_working_prompt_ids: List[str],
         eval_prompt_id: str,
         eval_model: str,
         meta_prompt_id: str,
@@ -69,7 +69,7 @@ class RunService:
         
         Args:
             client_id: Client ID creating the run
-            initial_working_prompt_id: Starting working prompt ID
+            initial_working_prompt_ids: Starting working prompt IDs (will be chained)
             eval_prompt_id: Evaluation prompt ID (fixed)
             eval_model: Evaluation model name (fixed)
             meta_prompt_id: Meta-prompting prompt ID (fixed)
@@ -90,11 +90,9 @@ class RunService:
         
         # Validate all prompts exist
         logger.info("Validating prompts", client_id=client_id)
-        self._validate_prompts_exist([
-            initial_working_prompt_id,
-            eval_prompt_id,
-            meta_prompt_id
-        ])
+        self._validate_prompts_exist(
+            initial_working_prompt_ids + [eval_prompt_id, meta_prompt_id]
+        )
         logger.info("Prompts validation passed")
         
         # Validate all models exist
@@ -115,7 +113,7 @@ class RunService:
         run_doc = {
             "clientId": client_id,
             "status": RunStatus.PENDING.value,
-            "initialWorkingPromptId": initial_working_prompt_id,
+            "initialWorkingPromptIds": initial_working_prompt_ids,
             "evalPromptId": eval_prompt_id,
             "evalModel": eval_model,
             "metaPromptId": meta_prompt_id,
@@ -184,24 +182,25 @@ class RunService:
         working_models = run["workingModels"]
         max_iterations = run["maxIterations"]
         
-        # Determine working prompt to use
+        # Determine working prompt(s) to use
         if current_iteration == 0:
-            # First iteration: use initial working prompt
-            working_prompt_id = run["initialWorkingPromptId"]
+            # First iteration: use initial working prompts (can be multiple, will be chained)
+            working_prompt_ids = run["initialWorkingPromptIds"]
         else:
-            # Subsequent iterations: use suggested prompt from previous iteration
+            # Subsequent iterations: use only the single suggested prompt from previous iteration (Option A)
             model_runs = run.get("modelRuns", [])
             if current_model_index < len(model_runs):
                 iterations = model_runs[current_model_index].get("iterations", [])
                 if iterations and len(iterations) > 0:
                     # Get the last iteration's suggested prompt
                     last_iteration = iterations[-1]
-                    working_prompt_id = last_iteration.get("suggestedPromptId")
-                    if not working_prompt_id:
+                    suggested_prompt_id = last_iteration.get("suggestedPromptId")
+                    if not suggested_prompt_id:
                         raise ValueError(f"No suggested prompt found for iteration {current_iteration - 1}")
+                    working_prompt_ids = [suggested_prompt_id]  # Single prompt for iterations > 0
                 else:
-                    # Shouldn't happen, but fall back to initial prompt
-                    working_prompt_id = run["initialWorkingPromptId"]
+                    # Shouldn't happen, but fall back to initial prompts
+                    working_prompt_ids = run["initialWorkingPromptIds"]
             else:
                 raise ValueError(f"Invalid model index: {current_model_index}")
         
@@ -214,7 +213,7 @@ class RunService:
             client_id=client_id,
             operation="optimize",
             prompts=None,
-            working_prompts=[working_prompt_id],
+            working_prompts=working_prompt_ids,  # Can be multiple prompts (chained) or single
             model=working_model,
             temperature=run["temperature"],
             priority=run["priority"],
@@ -569,7 +568,7 @@ class RunService:
             "runId": str(run["_id"]),
             "clientId": run.get("clientId"),
             "status": run.get("status"),
-            "initialWorkingPromptId": run.get("initialWorkingPromptId"),
+            "initialWorkingPromptIds": run.get("initialWorkingPromptIds", []),
             "evalPromptId": run.get("evalPromptId"),
             "evalModel": run.get("evalModel"),
             "metaPromptId": run.get("metaPromptId"),

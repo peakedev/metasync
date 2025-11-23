@@ -65,7 +65,7 @@ class ModelRun(BaseModel):
 
 class RunCreateRequest(BaseModel):
     """Request model for creating a new run"""
-    initialWorkingPromptId: str = Field(..., description="Starting working prompt ID", min_length=1)
+    initialWorkingPromptIds: List[str] = Field(..., description="Starting working prompt IDs (will be chained in order)", min_items=1)
     evalPromptId: str = Field(..., description="Evaluation prompt ID (fixed for all iterations)", min_length=1)
     evalModel: str = Field(..., description="Evaluation model name (fixed for all iterations)", min_length=1)
     metaPromptId: str = Field(..., description="Meta-prompting prompt ID (fixed for all iterations)", min_length=1)
@@ -79,7 +79,7 @@ class RunCreateRequest(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
-                "initialWorkingPromptId": "507f1f77bcf86cd799439011",
+                "initialWorkingPromptIds": ["507f1f77bcf86cd799439011"],
                 "evalPromptId": "507f1f77bcf86cd799439012",
                 "evalModel": "gpt-4o",
                 "metaPromptId": "507f1f77bcf86cd799439013",
@@ -112,7 +112,7 @@ class RunResponse(BaseModel):
     runId: str = Field(..., description="Unique run identifier (MongoDB _id)")
     clientId: str = Field(..., description="Client ID that owns the run")
     status: RunStatus = Field(..., description="Run status")
-    initialWorkingPromptId: str = Field(..., description="Initial working prompt ID")
+    initialWorkingPromptIds: List[str] = Field(..., description="Initial working prompt IDs")
     evalPromptId: str = Field(..., description="Evaluation prompt ID")
     evalModel: str = Field(..., description="Evaluation model name")
     metaPromptId: str = Field(..., description="Meta-prompting prompt ID")
@@ -135,7 +135,7 @@ class RunResponse(BaseModel):
                 "runId": "507f1f77bcf86cd799439011",
                 "clientId": "123e4567-e89b-12d3-a456-426614174000",
                 "status": "RUNNING",
-                "initialWorkingPromptId": "507f1f77bcf86cd799439012",
+                "initialWorkingPromptIds": ["507f1f77bcf86cd799439012"],
                 "evalPromptId": "507f1f77bcf86cd799439013",
                 "evalModel": "gpt-4o",
                 "metaPromptId": "507f1f77bcf86cd799439014",

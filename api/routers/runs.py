@@ -76,7 +76,7 @@ async def create_run(
         service = get_run_service()
         run = service.create_run(
             client_id=client_id,
-            initial_working_prompt_id=request.initialWorkingPromptId,
+            initial_working_prompt_ids=request.initialWorkingPromptIds,
             eval_prompt_id=request.evalPromptId,
             eval_model=request.evalModel,
             meta_prompt_id=request.metaPromptId,

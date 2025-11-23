@@ -20,7 +20,7 @@ body:json {
   {
     "operation": "process",
     "prompts": ["{{promptId1}}", "{{promptId2}}"],
-    "model": "gptest",
+    "model": "{{model}}",
     "temperature": 0.7,
     "priority": 100,
     "id": "test-job-{{$timestamp}}",
@@ -48,7 +48,7 @@ tests {
     expect(job.operation).to.equal('process');
     expect(job.prompts).to.be.an('array');
     expect(job.prompts.length).to.be.greaterThan(0);
-    expect(job.model).to.equal('gptest');
+    expect(job.model).to.equal('{{model}}');
     expect(job.temperature).to.equal(0.7);
     expect(job.priority).to.equal(100);
     expect(job.status).to.equal('PENDING');
