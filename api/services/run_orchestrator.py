@@ -260,6 +260,7 @@ class RunOrchestrator:
             run_id: Run document ID
             error_message: Error message to store
         """
+        logger.error("Marking run as failed", run_id=run_id, reason=error_message)
         db_update(
             self.mongo_client,
             self.db_name,
@@ -267,7 +268,7 @@ class RunOrchestrator:
             run_id,
             {
                 "status": RunStatus.FAILED.value,
-                "errorMessage": error_message,
+                "failureReason": error_message,
                 "currentJobId": None
             }
         )

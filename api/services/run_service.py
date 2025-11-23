@@ -168,15 +168,19 @@ class RunService:
                 run_id=db_id,
                 traceback=error_details
             )
-            # Mark run as failed
+            # Mark run as failed with reason
+            failure_reason = f"Failed to seed first job: {type(e).__name__}: {str(e)}"
             db_update(
                 self.mongo_client,
                 self.db_name,
                 self.collection_name,
                 db_id,
-                {"status": RunStatus.FAILED.value}
+                {
+                    "status": RunStatus.FAILED.value,
+                    "failureReason": failure_reason
+                }
             )
-            raise RuntimeError(f"Failed to seed first job: {type(e).__name__}: {str(e)}")
+            raise RuntimeError(failure_reason)
         
         # Return updated run
         return self.get_run_by_id(db_id, client_id)
@@ -363,8 +367,18 @@ class RunService:
             }
         )
         
+        # Get updated run (raw document, not formatted response)
+        updated_run = get_document_by_id(
+            self.mongo_client,
+            self.db_name,
+            self.collection_name,
+            run_id
+        )
+        
+        if not updated_run:
+            raise RuntimeError(f"Failed to retrieve updated run: {run_id}")
+        
         # Seed next job
-        updated_run = self.get_run_by_id(run_id, run["clientId"], is_admin=True)
         self._seed_next_job(updated_run)
         
         logger.info(

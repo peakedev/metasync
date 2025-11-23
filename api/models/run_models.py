@@ -125,6 +125,7 @@ class RunResponse(BaseModel):
     currentModelIndex: int = Field(0, description="Index of current model being processed")
     currentIteration: int = Field(0, description="Current iteration number")
     currentJobId: Optional[str] = Field(None, description="Current job ID being processed")
+    failureReason: Optional[str] = Field(None, description="Reason for failure if status is FAILED")
     modelRuns: List[ModelRun] = Field(default_factory=list, description="Results for each model")
     metadata: Dict[str, Any] = Field(..., alias="_metadata", description="Metadata object with createdAt, updatedAt, etc.")
     
