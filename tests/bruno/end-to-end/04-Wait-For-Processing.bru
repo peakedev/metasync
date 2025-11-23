@@ -18,7 +18,7 @@ headers {
 
 script:pre-request {
   // Use a proper async delay instead of busy-wait to avoid connection issues
-  const waitTime = 2000; // 10 seconds
+  const waitTime = bru.getEnvVar("processingWaitTime");
   
   console.log(`Waiting ${waitTime / 1000} seconds before checking job status...`);
   
@@ -46,7 +46,8 @@ tests {
     if (status === 'PENDING' || status === 'PROCESSING') {
       // Job is still processing after wait time
       // This indicates the worker may not be processing jobs correctly
-      const errorMsg = `Job is still ${status} after waiting 30 seconds. This may indicate:\n` +
+      const waitTime = bru.getEnvVar("processingWaitTime");
+      const errorMsg = `Job is still ${status} after waiting ${waitTime / 1000} seconds. This may indicate:\n` +
         `1. Worker is not running or crashed - check worker status\n` +
         `2. Worker cannot find this job - check clientReference filters match\n` +
         `3. Worker is processing but taking longer than expected\n` +

@@ -21,7 +21,7 @@ body:json {
     "config": {
       "pollInterval": 15,
       "maxItemsPerBatch": 100,
-      "modelFilter": "gpt-4",
+      "modelFilter": "{{model}}",
       "operationFilter": null,
       "clientReferenceFilters": null
     }
@@ -41,7 +41,7 @@ tests {
     const worker = res.getBody();
     expect(worker.config.pollInterval).to.equal(15);
     expect(worker.config.maxItemsPerBatch).to.equal(100);
-    expect(worker.config.modelFilter).to.equal('gpt-4');
+    expect(worker.config.modelFilter).to.equal(bru.getEnvVar("model"));
     expect(worker.config.operationFilter).to.be.null;
     expect(worker.config.clientReferenceFilters).to.be.null;
   });

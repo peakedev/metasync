@@ -156,12 +156,14 @@ class AzureOpenAISDK(BaseLLMSDK):
         )
 
         # Make the streaming API call
+        # IMPORTANT: stream_options={"include_usage": True} is required to get token counts
         response = client.chat.completions.create(
             model=deployment,
             messages=messages,
             temperature=temperature,
             max_completion_tokens=max_tokens,
             stream=True,
+            stream_options={"include_usage": True}
         )
 
         # Stream the response chunks

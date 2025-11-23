@@ -22,7 +22,7 @@ body:json {
     "config": {
       "pollInterval": 10,
       "maxItemsPerBatch": 1,
-      "modelFilter": "gptest",
+      "modelFilter": "{{model}}",
       "operationFilter": "process",
       "clientReferenceFilters": {
         "ref": "test-ref-123"
@@ -50,7 +50,7 @@ tests {
     expect(worker).to.have.property('config');
     expect(worker.config.pollInterval).to.equal(10);
     expect(worker.config.maxItemsPerBatch).to.equal(1);
-    expect(worker.config.modelFilter).to.equal('gptest');
+    expect(worker.config.modelFilter).to.equal(bru.getEnvVar("model"));
     expect(worker.config.operationFilter).to.equal('process');
     expect(worker.config.clientReferenceFilters).to.be.an('object');
     expect(worker.config.clientReferenceFilters.ref).to.equal('test-ref-123');

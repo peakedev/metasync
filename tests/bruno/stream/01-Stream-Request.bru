@@ -19,7 +19,7 @@ headers {
 body:json {
   {
     "userPrompt": "Tell me a short story",
-    "model": "gptest",
+    "model": "{{model}}",
     "temperature": 0.7
   }
 }
@@ -46,3 +46,12 @@ tests {
     expect(body).to.include('Lorem ipsum');
   });
 }
+
+script:post-response {
+  // Store streamId for the next test to verify metrics
+  const streamId = res.getHeader('x-stream-id') || res.getHeader('X-Stream-Id');
+  if (streamId) {
+    bru.setVar("streamId", streamId);
+  }
+}
+

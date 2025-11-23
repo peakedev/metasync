@@ -70,6 +70,6 @@ tests {
   test("Job has correct operation and model", function() {
     const job = res.getBody();
     expect(job.operation).to.equal('process');
-    expect(job.model).to.equal('gptest');
+    expect(job.model).to.equal(bru.getEnvVar("model"));
   });
 }

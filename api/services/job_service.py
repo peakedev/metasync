@@ -262,7 +262,7 @@ class JobService:
         business_logger.log_operation("job_service", "create_job", client_id=client_id)
         
         # Handle backward compatibility: use working_prompts if provided, otherwise use prompts
-        final_working_prompts = working_prompts if working_prompts else prompts
+        final_working_prompts = working_prompts if working_prompts is not None else prompts
         if not final_working_prompts:
             raise ValueError("Either 'prompts' or 'workingPrompts' must be provided")
         
