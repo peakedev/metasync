@@ -22,7 +22,7 @@ In time, we want to add a layer of abstraction to allow orchestration of many LL
 - True runtime statelessness with distributed semaphore for thread management & thread at worker level
 - Auto mode with (parametrised) model router as entry point (support for 'model forwarding') 
 - High level worker controls (Total estimate cost; Rate limiting in Tokens per minute)
-- User Interface 
+- Basic User Interface 
 
 ## Project Structure
 
