@@ -20,7 +20,7 @@ body:json {
   {
     "userPrompt": "Process this request",
     "additionalPrompts": ["{{promptId1}}", "{{promptId2}}"],
-    "model": "gptest",
+    "model": "{{model}}",
     "temperature": 0.5
   }
 }
@@ -40,5 +40,13 @@ tests {
     expect(res.getBody()).to.be.a('string');
     expect(res.getBody().length).to.be.greaterThan(0);
   });
+}
+
+script:post-response {
+  // Store streamId for future tests
+  const streamId = res.getHeader('x-stream-id') || res.getHeader('X-Stream-Id');
+  if (streamId) {
+    bru.setVar("streamId", streamId);
+  }
 }
 

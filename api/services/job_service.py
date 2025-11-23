@@ -228,22 +228,30 @@ class JobService:
         job_client_id = job.get("clientId")
         return job_client_id == client_id
     
-    def create_job(self, client_id: str, operation: str, prompts: List[str], model: str,
+    def create_job(self, client_id: str, operation: str, prompts: Optional[List[str]], model: str,
                    temperature: float, priority: int, request_data: Dict[str, Any],
-                   job_id: Optional[str] = None, client_reference: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+                   job_id: Optional[str] = None, client_reference: Optional[Dict[str, Any]] = None,
+                   working_prompts: Optional[List[str]] = None,
+                   eval_prompt: Optional[str] = None, eval_model: Optional[str] = None,
+                   meta_prompt: Optional[str] = None, meta_model: Optional[str] = None) -> Dict[str, Any]:
         """
         Create a new job with validation.
         
         Args:
             client_id: Client ID creating the job
             operation: Operation type
-            prompts: List of prompt IDs
-            model: Model name
+            prompts: (Deprecated) List of prompt IDs - use working_prompts instead
+            model: Model name for working step
             temperature: Temperature (0-1)
             priority: Priority (1-1000)
             request_data: Request data to be sent to LLM (required)
             job_id: Optional client-provided job ID
             client_reference: Optional client reference data
+            working_prompts: List of working prompt IDs (preferred over prompts)
+            eval_prompt: Optional prompt ID for evaluation step
+            eval_model: Optional model name for evaluation step
+            meta_prompt: Optional prompt ID for meta-prompting step
+            meta_model: Optional model name for meta-prompting step
             
         Returns:
             Created job dictionary
@@ -253,27 +261,59 @@ class JobService:
         """
         business_logger.log_operation("job_service", "create_job", client_id=client_id)
         
-        # Validate prompts exist in the prompts collection
-        logger.info("Validating prompts", prompt_ids=prompts, client_id=client_id)
-        self._validate_prompts_exist(prompts)
-        logger.info("Prompts validation passed", prompt_ids=prompts)
+        # Handle backward compatibility: use working_prompts if provided, otherwise use prompts
+        final_working_prompts = working_prompts if working_prompts is not None else prompts
+        if not final_working_prompts:
+            raise ValueError("Either 'prompts' or 'workingPrompts' must be provided")
+        
+        # Validate working prompts exist in the prompts collection
+        logger.info("Validating working prompts", prompt_ids=final_working_prompts, client_id=client_id)
+        self._validate_prompts_exist(final_working_prompts)
+        logger.info("Working prompts validation passed", prompt_ids=final_working_prompts)
         
         # Validate model exists in the models collection
         logger.info("Validating model", model=model, client_id=client_id)
         self._validate_model_exists(model)
         logger.info("Model validation passed", model=model)
         
+        # Validate eval prompt and model if provided
+        if eval_prompt and eval_model:
+            logger.info("Validating eval prompt and model", eval_prompt=eval_prompt, eval_model=eval_model)
+            self._validate_prompts_exist([eval_prompt])
+            self._validate_model_exists(eval_model)
+            logger.info("Eval validation passed")
+        elif eval_prompt or eval_model:
+            raise ValueError("Both evalPrompt and evalModel must be provided together, or neither")
+        
+        # Validate meta prompt and model if provided
+        if meta_prompt and meta_model:
+            logger.info("Validating meta prompt and model", meta_prompt=meta_prompt, meta_model=meta_model)
+            self._validate_prompts_exist([meta_prompt])
+            self._validate_model_exists(meta_model)
+            logger.info("Meta validation passed")
+        elif meta_prompt or meta_model:
+            raise ValueError("Both metaPrompt and metaModel must be provided together, or neither")
+        
         # Create job document
         job_doc = {
             "clientId": client_id,
             "status": JobStatus.PENDING.value,
             "operation": operation,
-            "prompts": prompts,
+            "workingPrompts": final_working_prompts,
             "model": model,
             "temperature": temperature,
             "priority": priority,
             "requestData": request_data
         }
+        
+        # Add optimization fields if provided
+        if eval_prompt and eval_model:
+            job_doc["evalPrompt"] = eval_prompt
+            job_doc["evalModel"] = eval_model
+        
+        if meta_prompt and meta_model:
+            job_doc["metaPrompt"] = meta_prompt
+            job_doc["metaModel"] = meta_model
         
         if job_id:
             job_doc["id"] = job_id
@@ -323,11 +363,30 @@ class JobService:
         # Validate each job
         for idx, job_request in enumerate(job_requests):
             try:
-                # Validate prompts exist
-                self._validate_prompts_exist(job_request.prompts)
+                # Handle backward compatibility for prompts
+                final_working_prompts = job_request.workingPrompts if job_request.workingPrompts else job_request.prompts
+                if not final_working_prompts:
+                    raise ValueError("Either 'prompts' or 'workingPrompts' must be provided")
+                
+                # Validate working prompts exist
+                self._validate_prompts_exist(final_working_prompts)
                 
                 # Validate model exists
                 self._validate_model_exists(job_request.model)
+                
+                # Validate eval fields if provided
+                if job_request.evalPrompt and job_request.evalModel:
+                    self._validate_prompts_exist([job_request.evalPrompt])
+                    self._validate_model_exists(job_request.evalModel)
+                elif job_request.evalPrompt or job_request.evalModel:
+                    raise ValueError("Both evalPrompt and evalModel must be provided together")
+                
+                # Validate meta fields if provided
+                if job_request.metaPrompt and job_request.metaModel:
+                    self._validate_prompts_exist([job_request.metaPrompt])
+                    self._validate_model_exists(job_request.metaModel)
+                elif job_request.metaPrompt or job_request.metaModel:
+                    raise ValueError("Both metaPrompt and metaModel must be provided together")
             except ValueError as e:
                 logger.warning("Validation error in batch", error=str(e), job_index=idx, client_id=client_id)
                 raise ValueError(f"Validation failed for job {idx + 1} in batch: {str(e)}")
@@ -340,12 +399,15 @@ class JobService:
         
         try:
             for idx, job_request in enumerate(job_requests):
+                # Handle backward compatibility
+                final_working_prompts = job_request.workingPrompts if job_request.workingPrompts else job_request.prompts
+                
                 # Create job document
                 job_doc = {
                     "clientId": client_id,
                     "status": JobStatus.PENDING.value,
                     "operation": job_request.operation,
-                    "prompts": job_request.prompts,
+                    "workingPrompts": final_working_prompts,
                     "model": job_request.model,
                     "temperature": job_request.temperature,
                     "priority": job_request.priority,
@@ -357,6 +419,15 @@ class JobService:
                 
                 if job_request.clientReference:
                     job_doc["clientReference"] = job_request.clientReference
+                
+                # Add optimization fields if provided
+                if job_request.evalPrompt and job_request.evalModel:
+                    job_doc["evalPrompt"] = job_request.evalPrompt
+                    job_doc["evalModel"] = job_request.evalModel
+                
+                if job_request.metaPrompt and job_request.metaModel:
+                    job_doc["metaPrompt"] = job_request.metaPrompt
+                    job_doc["metaModel"] = job_request.metaModel
                 
                 # Save to database
                 db_id = db_create(
@@ -564,9 +635,14 @@ class JobService:
     
     def update_job(self, job_id: str, status: Optional[JobStatus] = None,
                    operation: Optional[str] = None, prompts: Optional[List[str]] = None,
+                   working_prompts: Optional[List[str]] = None,
                    model: Optional[str] = None, temperature: Optional[float] = None,
                    priority: Optional[int] = None, request_data: Optional[Dict[str, Any]] = None,
                    client_reference: Optional[Dict[str, Any]] = None,
+                   eval_prompt: Optional[str] = None, eval_model: Optional[str] = None,
+                   meta_prompt: Optional[str] = None, meta_model: Optional[str] = None,
+                   eval_result: Optional[Dict[str, Any]] = None,
+                   suggested_prompt_id: Optional[str] = None,
                    client_id: Optional[str] = None, is_admin: bool = False) -> Dict[str, Any]:
         """
         Full update of a job (for workers/admin).
@@ -575,12 +651,19 @@ class JobService:
             job_id: Job document ID
             status: Optional new status
             operation: Optional new operation
-            prompts: Optional new prompts list
+            prompts: (Deprecated) Optional new prompts list
+            working_prompts: Optional new working prompts list
             model: Optional new model
             temperature: Optional new temperature
             priority: Optional new priority
             request_data: Optional new request data
             client_reference: Optional new client reference
+            eval_prompt: Optional new eval prompt ID
+            eval_model: Optional new eval model
+            meta_prompt: Optional new meta prompt ID
+            meta_model: Optional new meta model
+            eval_result: Optional eval result data
+            suggested_prompt_id: Optional suggested prompt ID from meta step
             client_id: Optional client ID for access control
             is_admin: Whether the requester is an admin
             
@@ -630,10 +713,15 @@ class JobService:
         if operation is not None:
             updates["operation"] = operation
         
-        if prompts is not None:
-            # Validate prompts exist in the prompts collection
+        # Handle backward compatibility for prompts
+        if working_prompts is not None:
+            # Validate working prompts exist in the prompts collection
+            self._validate_prompts_exist(working_prompts)
+            updates["workingPrompts"] = working_prompts
+        elif prompts is not None:
+            # Support deprecated 'prompts' field
             self._validate_prompts_exist(prompts)
-            updates["prompts"] = prompts
+            updates["workingPrompts"] = prompts
         
         if model is not None:
             # Validate model exists in the models collection
@@ -655,6 +743,29 @@ class JobService:
         
         if client_reference is not None:
             updates["clientReference"] = client_reference
+        
+        # Handle optimization fields
+        if eval_prompt is not None:
+            self._validate_prompts_exist([eval_prompt])
+            updates["evalPrompt"] = eval_prompt
+        
+        if eval_model is not None:
+            self._validate_model_exists(eval_model)
+            updates["evalModel"] = eval_model
+        
+        if meta_prompt is not None:
+            self._validate_prompts_exist([meta_prompt])
+            updates["metaPrompt"] = meta_prompt
+        
+        if meta_model is not None:
+            self._validate_model_exists(meta_model)
+            updates["metaModel"] = meta_model
+        
+        if eval_result is not None:
+            updates["evalResult"] = eval_result
+        
+        if suggested_prompt_id is not None:
+            updates["suggestedPromptId"] = suggested_prompt_id
         
         if not updates:
             logger.warning("No updates provided", job_id=job_id)
@@ -781,13 +892,28 @@ class JobService:
         # Second pass: validate all update fields (prompts, models, etc.)
         for idx, (job_id, job, job_update) in enumerate(jobs_to_update):
             try:
-                # Validate prompts if provided
-                if "prompts" in job_update and job_update["prompts"] is not None:
+                # Validate working prompts if provided
+                if "workingPrompts" in job_update and job_update["workingPrompts"] is not None:
+                    self._validate_prompts_exist(job_update["workingPrompts"])
+                # Support deprecated 'prompts' field
+                elif "prompts" in job_update and job_update["prompts"] is not None:
                     self._validate_prompts_exist(job_update["prompts"])
                 
                 # Validate model if provided
                 if "model" in job_update and job_update["model"] is not None:
                     self._validate_model_exists(job_update["model"])
+                
+                # Validate eval fields if provided
+                if "evalPrompt" in job_update and job_update["evalPrompt"] is not None:
+                    self._validate_prompts_exist([job_update["evalPrompt"]])
+                if "evalModel" in job_update and job_update["evalModel"] is not None:
+                    self._validate_model_exists(job_update["evalModel"])
+                
+                # Validate meta fields if provided
+                if "metaPrompt" in job_update and job_update["metaPrompt"] is not None:
+                    self._validate_prompts_exist([job_update["metaPrompt"]])
+                if "metaModel" in job_update and job_update["metaModel"] is not None:
+                    self._validate_model_exists(job_update["metaModel"])
                 
                 # Validate status transition if provided
                 if "status" in job_update and job_update["status"] is not None:
@@ -821,8 +947,11 @@ class JobService:
                 if "operation" in job_update and job_update["operation"] is not None:
                     updates["operation"] = job_update["operation"]
                 
-                if "prompts" in job_update and job_update["prompts"] is not None:
-                    updates["prompts"] = job_update["prompts"]
+                # Handle backward compatibility for prompts
+                if "workingPrompts" in job_update and job_update["workingPrompts"] is not None:
+                    updates["workingPrompts"] = job_update["workingPrompts"]
+                elif "prompts" in job_update and job_update["prompts"] is not None:
+                    updates["workingPrompts"] = job_update["prompts"]
                 
                 if "model" in job_update and job_update["model"] is not None:
                     updates["model"] = job_update["model"]
@@ -842,6 +971,25 @@ class JobService:
                 
                 if "clientReference" in job_update and job_update["clientReference"] is not None:
                     updates["clientReference"] = job_update["clientReference"]
+                
+                # Handle optimization fields
+                if "evalPrompt" in job_update and job_update["evalPrompt"] is not None:
+                    updates["evalPrompt"] = job_update["evalPrompt"]
+                
+                if "evalModel" in job_update and job_update["evalModel"] is not None:
+                    updates["evalModel"] = job_update["evalModel"]
+                
+                if "metaPrompt" in job_update and job_update["metaPrompt"] is not None:
+                    updates["metaPrompt"] = job_update["metaPrompt"]
+                
+                if "metaModel" in job_update and job_update["metaModel"] is not None:
+                    updates["metaModel"] = job_update["metaModel"]
+                
+                if "evalResult" in job_update and job_update["evalResult"] is not None:
+                    updates["evalResult"] = job_update["evalResult"]
+                
+                if "suggestedPromptId" in job_update and job_update["suggestedPromptId"] is not None:
+                    updates["suggestedPromptId"] = job_update["suggestedPromptId"]
                 
                 # Skip if no updates provided for this job
                 if not updates:
@@ -1135,12 +1283,16 @@ class JobService:
         Returns:
             Formatted job dictionary
         """
-        return {
+        # Handle backward compatibility: if workingPrompts exists, use it; otherwise use prompts
+        working_prompts = job.get("workingPrompts", job.get("prompts", []))
+        
+        response = {
             "jobId": str(job["_id"]),
             "clientId": job.get("clientId"),
             "status": job.get("status"),
             "operation": job.get("operation"),
-            "prompts": job.get("prompts", []),
+            "workingPrompts": working_prompts,
+            "prompts": working_prompts,  # Keep for backward compatibility
             "model": job.get("model"),
             "temperature": job.get("temperature"),
             "priority": job.get("priority"),
@@ -1151,6 +1303,22 @@ class JobService:
             "clientReference": job.get("clientReference"),
             "_metadata": job.get("_metadata", {})
         }
+        
+        # Add optimization fields if present
+        if "evalPrompt" in job:
+            response["evalPrompt"] = job["evalPrompt"]
+        if "evalModel" in job:
+            response["evalModel"] = job["evalModel"]
+        if "metaPrompt" in job:
+            response["metaPrompt"] = job["metaPrompt"]
+        if "metaModel" in job:
+            response["metaModel"] = job["metaModel"]
+        if "evalResult" in job:
+            response["evalResult"] = job["evalResult"]
+        if "suggestedPromptId" in job:
+            response["suggestedPromptId"] = job["suggestedPromptId"]
+        
+        return response
 
 
 # Singleton instance

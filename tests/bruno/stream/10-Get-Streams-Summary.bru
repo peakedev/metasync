@@ -1,0 +1,92 @@
+meta {
+  name: Get Streams Summary
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{baseUrl}}/stream/summary
+  body: none
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  client_id: {{clientId}}
+  client_api_key: {{clientApiKey}}
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Response is an object", function() {
+    expect(res.getBody()).to.be.an('object');
+  });
+  
+  test("Response has all status counts", function() {
+    const summary = res.getBody();
+    expect(summary).to.have.property('streaming');
+    expect(summary).to.have.property('completed');
+    expect(summary).to.have.property('error');
+    expect(summary).to.have.property('total');
+  });
+  
+  test("Status counts are numbers", function() {
+    const summary = res.getBody();
+    expect(summary.streaming).to.be.a('number');
+    expect(summary.completed).to.be.a('number');
+    expect(summary.error).to.be.a('number');
+    expect(summary.total).to.be.a('number');
+  });
+  
+  test("Total equals sum of all statuses", function() {
+    const summary = res.getBody();
+    const sum = summary.streaming + summary.completed + summary.error;
+    expect(summary.total).to.equal(sum);
+  });
+  
+  test("All counts are non-negative", function() {
+    const summary = res.getBody();
+    expect(summary.streaming).to.be.at.least(0);
+    expect(summary.completed).to.be.at.least(0);
+    expect(summary.error).to.be.at.least(0);
+    expect(summary.total).to.be.at.least(0);
+  });
+  
+  test("Response has processingMetrics if there are completed streams", function() {
+    const summary = res.getBody();
+    // processingMetrics should be present if there are completed streams
+    if (summary.completed > 0) {
+      expect(summary).to.have.property('processingMetrics');
+      if (summary.processingMetrics !== null) {
+        expect(summary.processingMetrics).to.be.an('object');
+        
+        // Token fields should always be present and positive
+        expect(summary.processingMetrics).to.have.property('inputTokens');
+        expect(summary.processingMetrics.inputTokens).to.be.a('number');
+        expect(summary.processingMetrics.inputTokens).to.be.greaterThan(0);
+        
+        expect(summary.processingMetrics).to.have.property('outputTokens');
+        expect(summary.processingMetrics.outputTokens).to.be.a('number');
+        expect(summary.processingMetrics.outputTokens).to.be.greaterThan(0);
+        
+        expect(summary.processingMetrics).to.have.property('totalTokens');
+        expect(summary.processingMetrics.totalTokens).to.be.a('number');
+        expect(summary.processingMetrics.totalTokens).to.be.greaterThan(0);
+        
+        expect(summary.processingMetrics).to.have.property('duration');
+        expect(summary.processingMetrics.duration).to.be.a('number');
+        expect(summary.processingMetrics.duration).to.be.greaterThan(0);
+        
+        // Cost fields should always be present (even if null)
+        expect(summary.processingMetrics).to.have.property('inputCost');
+        expect(summary.processingMetrics).to.have.property('outputCost');
+        expect(summary.processingMetrics).to.have.property('totalCost');
+        expect(summary.processingMetrics).to.have.property('currency');
+      }
+    }
+  });
+}
+

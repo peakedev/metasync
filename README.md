@@ -19,92 +19,28 @@ The Metasync Docker image is available on Docker Hub:
 In time, we want to add a layer of abstraction to allow orchestration of many LLM tasks, automated handling of model rate limiters, built-in multi-provider failover routing, evaluation pipelines, and long-running background jobs.
 
 # 1.0.0
-- Address statelessness & challenges with multithreaded workers defined within the replicas
-- Ensure the llm-optimiser functionalities are fully API enabled and working in the framework
-- Chain or Embed the evaluation step (optionally) separately from the llm_optimizer but still compatible with the optimization routines
-- Control on rate limiting
-- Control on cost & cost estimates
+- True runtime statelessness with distributed semaphore for thread management & thread at worker level
+- Auto mode with (parametrised) model router as entry point (support for 'model forwarding') 
+- High level worker controls (Total estimate cost; Rate limiting in Tokens per minute)
+- User Interface 
 
 ## Project Structure
 
 ```
-├── api/
-│   ├── __init__.py
-│   ├── core/
-│   │   ├── __init__.py
-│   │   ├── docs_auth.py
-│   │   └── logging.py
-│   ├── middleware/
-│   │   ├── __init__.py
-│   │   ├── auth.py
-│   │   └── client_auth.py
-│   ├── models/
-│   │   ├── __init__.py
-│   │   ├── client_models.py
-│   │   ├── job_models.py
-│   │   ├── model_models.py
-│   │   ├── prompt_flow_models.py
-│   │   ├── prompt_models.py
-│   │   └── worker_models.py
-│   ├── routers/
-│   │   ├── __init__.py
-│   │   ├── clients.py
-│   │   ├── health.py
-│   │   ├── jobs.py
-│   │   ├── models.py
-│   │   ├── prompt_flows.py
-│   │   ├── prompts.py
-│   │   └── workers.py
-│   └── services/
-│       ├── __init__.py
-│       ├── client_service.py
-│       ├── job_service.py
-│       ├── model_service.py
-│       ├── prompt_flow_service.py
-│       ├── prompt_service.py
-│       ├── worker_manager.py
-│       └── worker_service.py
-├── llm_optimizer/
-│   ├── opti_inqueue_handler.py
-│   ├── opti_outqueue_handler.py
-│   ├── opti_prompt_handler.py
-│   ├── optimisation_services/
-│   │   ├── __init__.py
-│   │   ├── core.py
-│   │   ├── evaluation.py
-│   │   └── meta_prompter.py
-│   ├── optimizer_orchestrator.py
-│   └── workflows/
-│       ├── __init__.py
-│       ├── combi_runner.py
-│       ├── init_runner.py
-│       ├── iteration_runner_workers.py
-│       └── operations_handler.py
-├── llm_sdks/
-│   ├── __init__.py
-│   ├── base_sdk.py          # Abstract base class for SDK plugins
-│   ├── registry.py           # Auto-discovery and registration
-│   ├── ChatCompletionsClient.py  # Azure AI Inference SDK
-│   ├── AzureOpenAI.py        # Azure OpenAI SDK
-│   ├── Anthropic.py          # Anthropic Claude SDK
-│   ├── test.py               # Mock/test SDK
-│   └── README.md             # SDK development guide
-├── llm_workers/
-│   └── llm_queue_worker.py
-├── utilities/
-│   ├── cosmos_connector.py
-│   ├── json_repair.py
-│   ├── keyring_handler.py
-│   └── llm_connector.py      # SDK dispatcher
-├── tests/
-│   ├── bruno/
-│   └── shell/
-├── config.py
-├── docker-compose.yaml
-├── Dockerfile
-├── env.json
-├── main_app.py
-└── requirements.txt
+├── api/                     # FastAPI application
+│   ├── core/               # Authentication and logging utilities
+│   ├── middleware/         # Auth middleware for requests
+│   ├── models/             # Pydantic data models
+│   ├── routers/            # API endpoint routes
+│   └── services/           # Business logic and data services
+├── llm_optimizers/         # Run orchestration and optimization logic
+├── llm_sdks/               # Pluggable LLM provider integrations
+├── llm_workers/            # Background queue workers for LLM processing
+├── utilities/              # Database connectors and helper functions
+├── tests/                  # Bruno API tests and test data
+├── config.py               # Application configuration
+├── main_app.py             # Application entry point
+└── requirements.txt        # Python dependencies
 ```
 
 ## LLM SDK Plugin Architecture

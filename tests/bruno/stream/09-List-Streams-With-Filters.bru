@@ -1,0 +1,68 @@
+meta {
+  name: List Streams With Filters
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{baseUrl}}/stream?model={{model}}&status=completed&limit=10
+  body: none
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  client_id: {{clientId}}
+  client_api_key: {{clientApiKey}}
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Response is an array", function() {
+    expect(res.getBody()).to.be.an('array');
+  });
+  
+  test("All returned streams match model filter", function() {
+    const streams = res.getBody();
+    streams.forEach(stream => {
+      expect(stream.model).to.equal(bru.getEnvVar("model"));
+    });
+  });
+  
+  test("All returned streams match status filter", function() {
+    const streams = res.getBody();
+    streams.forEach(stream => {
+      expect(stream.status).to.equal('completed');
+    });
+  });
+  
+  test("Results are limited to 10 items", function() {
+    const streams = res.getBody();
+    expect(streams.length).to.be.at.most(10);
+  });
+  
+  test("Client only sees their own streams", function() {
+    const streams = res.getBody();
+    streams.forEach(stream => {
+      const expectedClientId = bru.interpolate('{{clientId}}');
+      expect(stream.clientId).to.deep.equal(expectedClientId);
+    });
+  });
+  
+  test("Each stream has required fields", function() {
+    const streams = res.getBody();
+    if (streams.length > 0) {
+      const stream = streams[0];
+      expect(stream).to.have.property('streamId');
+      expect(stream).to.have.property('clientId');
+      expect(stream).to.have.property('model');
+      expect(stream).to.have.property('temperature');
+      expect(stream).to.have.property('status');
+      expect(stream).to.have.property('_metadata');
+    }
+  });
+}
+

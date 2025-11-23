@@ -1,0 +1,22 @@
+meta {
+  name: 03-Get-Run-By-ID
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/runs/{{runId}}
+  body: none
+  auth: none
+}
+
+headers {
+  client_id: {{clientId}}
+  client_api_key: {{clientApiKey}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.runId: eq {{runId}}
+}
+

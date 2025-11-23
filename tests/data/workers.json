@@ -1,3 +1,28 @@
 [
-
-]
+    {
+        "_id": {
+          "$oid": "69233c625db9090a25624098"
+        },
+        "workerId": "e2e-worker-1763916898",
+        "clientId": "d486037e-d1d7-4213-980e-0f47d8677ad2",
+        "status": "running",
+        "config": {
+          "pollInterval": 5,
+          "maxItemsPerBatch": 10
+        },
+        "threadInfo": {
+          "threadId": null,
+          "startedAt": "2025-11-23T22:44:35.306727"
+        },
+        "_metadata": {
+          "isDeleted": false,
+          "createdAt": "2025-11-23T17:54:58.528949",
+          "deletedAt": null,
+          "updatedAt": "2025-11-23T22:44:35.332178",
+          "archivedAt": null,
+          "createdBy": null,
+          "updatedBy": null,
+          "deletedBy": null
+        }
+      }
+    ]

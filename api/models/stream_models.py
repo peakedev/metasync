@@ -4,6 +4,14 @@ Pydantic models for stream API
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 from typing import Optional, List, Dict, Any
 from datetime import datetime
+from enum import Enum
+
+
+class StreamStatus(str, Enum):
+    """Status enum for streams"""
+    STREAMING = "streaming"
+    COMPLETED = "completed"
+    ERROR = "error"
 
 
 class StreamCreateRequest(BaseModel):
@@ -32,11 +40,14 @@ class StreamCreateRequest(BaseModel):
 
 class StreamResponse(BaseModel):
     """Response model for stream metadata (returned after streaming completes)"""
-    streamId: str = Field(..., alias="stream_id", description="MongoDB document ID")
+    streamId: str = Field(..., description="MongoDB document ID")
     clientId: str = Field(..., description="Client ID that created the stream")
     model: str = Field(..., description="Model used for the stream")
     temperature: float = Field(..., description="Temperature used")
     status: str = Field(..., description="Stream status (completed, error)")
+    processingMetrics: Optional[Dict[str, Any]] = Field(
+        None, description="Processing metrics including tokens, duration, and costs (only present after streaming completes)"
+    )
     metadata: Dict[str, Any] = Field(
         ..., alias="_metadata", description="Metadata with timestamps"
     )
@@ -50,6 +61,16 @@ class StreamResponse(BaseModel):
                 "model": "gptest",
                 "temperature": 0.7,
                 "status": "completed",
+                "processingMetrics": {
+                    "inputTokens": 10,
+                    "outputTokens": 50,
+                    "totalTokens": 60,
+                    "duration": 1.23,
+                    "inputCost": 0.0001,
+                    "outputCost": 0.0005,
+                    "totalCost": 0.0006,
+                    "currency": "USD"
+                },
                 "_metadata": {
                     "createdAt": "2024-01-01T00:00:00",
                     "completedAt": "2024-01-01T00:00:05"
@@ -77,5 +98,38 @@ class StreamRecord(BaseModel):
     status: str = Field(default="streaming", description="Stream status")
     metadata: Dict[str, Any] = Field(
         ..., alias="_metadata", description="Metadata with timestamps"
+    )
+
+
+class StreamSummaryResponse(BaseModel):
+    """Response model for stream summary with counts by status"""
+    streaming: int = Field(0, description="Count of streams with streaming status")
+    completed: int = Field(0, description="Count of streams with completed status")
+    error: int = Field(0, description="Count of streams with error status")
+    total: int = Field(0, description="Total count of streams matching filters")
+    processingMetrics: Optional[Dict[str, Any]] = Field(
+        None, 
+        description="Aggregated processing metrics from completed streams. Includes inputTokens, outputTokens, totalTokens, duration, and optionally inputCost, outputCost, totalCost, currency (only if all currencies match)"
+    )
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "streaming": 2,
+                "completed": 15,
+                "error": 1,
+                "total": 18,
+                "processingMetrics": {
+                    "inputTokens": 1500,
+                    "outputTokens": 800,
+                    "totalTokens": 2300,
+                    "duration": 45.5,
+                    "inputCost": 0.015,
+                    "outputCost": 0.008,
+                    "totalCost": 0.023,
+                    "currency": "USD"
+                }
+            }
+        }
     )
 

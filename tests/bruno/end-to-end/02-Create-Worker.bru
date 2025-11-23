@@ -22,7 +22,7 @@ body:json {
     "config": {
       "pollInterval": 5,
       "maxItemsPerBatch": 10,
-      "modelFilter": "gptest",
+      "modelFilter": "{{model}}",
       "operationFilter": "process",
       "clientReferenceFilters": {
         "ref": "{{e2eClientRef}}"
@@ -49,7 +49,7 @@ tests {
     expect(worker).to.have.property('config');
     expect(worker.config.pollInterval).to.equal(5);
     expect(worker.config.maxItemsPerBatch).to.equal(10);
-    expect(worker.config.modelFilter).to.equal('gptest');
+    expect(worker.config.modelFilter).to.equal(bru.getEnvVar("model"));
     expect(worker.config.operationFilter).to.equal('process');
     bru.setVar("e2eWorkerId", worker.workerId);
   });

@@ -1,0 +1,126 @@
+meta {
+  name: Get Stream and Verify Processing Metrics
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{baseUrl}}/stream/{{streamId}}
+  body: none
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  client_id: {{clientId}}
+  client_api_key: {{clientApiKey}}
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Response has streamId", function() {
+    const data = res.getBody();
+    expect(data).to.have.property('streamId');
+    expect(data.streamId).to.be.a('string');
+    const expectedStreamId = bru.interpolate('{{streamId}}');
+    expect(data.streamId).to.deep.equal(expectedStreamId);
+  });
+  
+  test("Response has clientId", function() {
+    const data = res.getBody();
+    expect(data).to.have.property('clientId');
+    const expectedClientId = bru.interpolate('{{clientId}}');
+    expect(data.clientId).to.deep.equal(expectedClientId);
+  });
+  
+  test("Response has model", function() {
+    const data = res.getBody();
+    expect(data).to.have.property('model');
+    expect(data.model).to.equal(bru.getEnvVar("model"));
+  });
+  
+  test("Response has temperature", function() {
+    const data = res.getBody();
+    expect(data).to.have.property('temperature');
+    expect(data.temperature).to.be.a('number');
+  });
+  
+  test("Response has status completed", function() {
+    const data = res.getBody();
+    expect(data).to.have.property('status');
+    expect(data.status).to.equal('completed');
+  });
+  
+  test("Response has processingMetrics", function() {
+    const data = res.getBody();
+    expect(data).to.have.property('processingMetrics');
+    expect(data.processingMetrics).to.be.an('object');
+  });
+  
+  test("Processing metrics has inputTokens", function() {
+    const data = res.getBody();
+    expect(data.processingMetrics).to.have.property('inputTokens');
+    expect(data.processingMetrics.inputTokens).to.be.a('number');
+    expect(data.processingMetrics.inputTokens).to.be.greaterThan(0);
+  });
+  
+  test("Processing metrics has outputTokens", function() {
+    const data = res.getBody();
+    expect(data.processingMetrics).to.have.property('outputTokens');
+    expect(data.processingMetrics.outputTokens).to.be.a('number');
+    expect(data.processingMetrics.outputTokens).to.be.greaterThan(0);
+  });
+  
+  test("Processing metrics has totalTokens", function() {
+    const data = res.getBody();
+    expect(data.processingMetrics).to.have.property('totalTokens');
+    expect(data.processingMetrics.totalTokens).to.be.a('number');
+    expect(data.processingMetrics.totalTokens).to.be.greaterThan(0);
+    expect(data.processingMetrics.totalTokens).to.equal(
+      data.processingMetrics.inputTokens + data.processingMetrics.outputTokens
+    );
+  });
+  
+  test("Processing metrics has duration", function() {
+    const data = res.getBody();
+    expect(data.processingMetrics).to.have.property('duration');
+    expect(data.processingMetrics.duration).to.be.a('number');
+    expect(data.processingMetrics.duration).to.be.greaterThan(0);
+  });
+  
+  test("Processing metrics has cost fields if model has pricing", function() {
+    const data = res.getBody();
+    // If inputCost exists, all other cost fields should exist
+    if (data.processingMetrics.inputCost !== undefined) {
+      expect(data.processingMetrics).to.have.property('inputCost');
+      expect(data.processingMetrics.inputCost).to.be.a('number');
+      expect(data.processingMetrics.inputCost).to.be.greaterThanOrEqual(0);
+      
+      expect(data.processingMetrics).to.have.property('outputCost');
+      expect(data.processingMetrics.outputCost).to.be.a('number');
+      expect(data.processingMetrics.outputCost).to.be.greaterThanOrEqual(0);
+      
+      expect(data.processingMetrics).to.have.property('totalCost');
+      expect(data.processingMetrics.totalCost).to.be.a('number');
+      expect(data.processingMetrics.totalCost).to.be.greaterThanOrEqual(0);
+      expect(data.processingMetrics.totalCost).to.equal(
+        data.processingMetrics.inputCost + data.processingMetrics.outputCost
+      );
+      
+      expect(data.processingMetrics).to.have.property('currency');
+      expect(data.processingMetrics.currency).to.be.a('string');
+      expect(data.processingMetrics.currency.length).to.be.greaterThan(0);
+    }
+  });
+  
+  test("Response has metadata with timestamps", function() {
+    const data = res.getBody();
+    expect(data).to.have.property('_metadata');
+    expect(data._metadata).to.have.property('createdAt');
+    expect(data._metadata).to.have.property('completedAt');
+    expect(data._metadata.completedAt).to.not.be.null;
+  });
+}

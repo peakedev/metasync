@@ -86,12 +86,17 @@ async def create_job(
             client_id=client_id,
             operation=request.operation,
             prompts=request.prompts,
+            working_prompts=request.workingPrompts,
             model=request.model,
             temperature=request.temperature,
             priority=request.priority,
             request_data=request.requestData,
             job_id=request.id,
-            client_reference=request.clientReference
+            client_reference=request.clientReference,
+            eval_prompt=request.evalPrompt,
+            eval_model=request.evalModel,
+            meta_prompt=request.metaPrompt,
+            meta_model=request.metaModel
         )
         
         return JobResponse(**job)
@@ -472,11 +477,18 @@ async def update_job_full(
             status=status_enum,
             operation=request.operation,
             prompts=request.prompts,
+            working_prompts=request.workingPrompts,
             model=request.model,
             temperature=request.temperature,
             priority=request.priority,
             request_data=request.requestData,
             client_reference=request.clientReference,
+            eval_prompt=request.evalPrompt,
+            eval_model=request.evalModel,
+            meta_prompt=request.metaPrompt,
+            meta_model=request.metaModel,
+            eval_result=request.evalResult,
+            suggested_prompt_id=request.suggestedPromptId,
             client_id=client_id,
             is_admin=is_admin
         )

@@ -283,6 +283,77 @@ class QueueWorker:
         except Exception as e:
             print(f"❌ Error getting model config for {model_name}: {e}")
             return None
+    
+    def _create_suggested_prompt(self, prompt_text: str, client_id: str, base_prompt_id: Optional[str] = None) -> str:
+        """
+        Create a new prompt document for meta-generated prompt.
+        
+        Args:
+            prompt_text: The suggested prompt text from meta step
+            client_id: Client ID that owns the job
+            base_prompt_id: Optional base prompt ID to extract metadata from
+            
+        Returns:
+            The ID of the newly created prompt
+        """
+        try:
+            from datetime import datetime
+            from bson import ObjectId
+            
+            # Get base prompt metadata if available
+            prompt_name = "optimized_prompt"
+            prompt_type = "system"
+            
+            if base_prompt_id:
+                try:
+                    base_prompt = get_document_by_id(
+                        self.mongo_client,
+                        self.db_name,
+                        "prompts",
+                        base_prompt_id
+                    )
+                    if base_prompt:
+                        prompt_name = f"optimized_{base_prompt.get('name', 'prompt')}"
+                        prompt_type = base_prompt.get('type', 'system')
+                except Exception:
+                    pass  # Use defaults if base prompt fetch fails
+            
+            # Create a unique name with timestamp
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            prompt_name = f"{prompt_name}_{timestamp}"
+            
+            # Create prompt document
+            prompt_doc = {
+                "_id": ObjectId(),
+                "name": prompt_name,
+                "version": 1,
+                "type": prompt_type,
+                "status": "DRAFT",
+                "prompt": prompt_text,
+                "isPublic": False,
+                "client_id": client_id,
+                "_metadata": {
+                    "createdAt": datetime.now().isoformat(),
+                    "updatedAt": datetime.now().isoformat(),
+                    "isDeleted": False,
+                    "createdBy": "llm_worker_meta",
+                    "updatedBy": "llm_worker_meta"
+                }
+            }
+            
+            # Insert into prompts collection
+            db = self.mongo_client[self.db_name]
+            collection = db["prompts"]
+            result = collection.insert_one(prompt_doc)
+            
+            if self.log_level == "DEBUG":
+                print(f"  📝 Created suggested prompt: {prompt_name} (ID: {result.inserted_id})")
+            
+            return str(result.inserted_id)
+            
+        except Exception as e:
+            print(f"❌ Error creating suggested prompt: {e}")
+            raise
 
     def atomic_status_update(
         self,
@@ -382,13 +453,20 @@ class QueueWorker:
             # Extract item data (support both old "data" and new
             # "requestData" field names)
             data = item.get("requestData", item.get("data", {}))
-            prompts = item.get("prompts", [])
+            # Handle backward compatibility: workingPrompts vs prompts
+            working_prompts = item.get("workingPrompts", item.get("prompts", []))
             model_name = item.get("model")
             temperature = item.get("temperature")
             client_id = item.get("clientId")
             priority = item.get("priority")
             job_id = item.get("id")  # The friendly job ID
             operation = item.get("operation")
+            
+            # Optimization fields
+            eval_prompt_id = item.get("evalPrompt")
+            eval_model_name = item.get("evalModel")
+            meta_prompt_id = item.get("metaPrompt")
+            meta_model_name = item.get("metaModel")
 
             # Validate required fields
             if not data:
@@ -397,8 +475,8 @@ class QueueWorker:
                     "base_language content"
                 )
 
-            if not prompts:
-                raise ValueError("No prompts found in item")
+            if not working_prompts:
+                raise ValueError("No working prompts found in item")
 
             if not model_name:
                 raise ValueError("No model specified in item")
@@ -410,11 +488,11 @@ class QueueWorker:
                     "may be missing"
                 )
 
-            # Process all prompts in order without categorization
+            # STEP 1: Process working prompts (existing logic)
             all_prompts = []
             prompt_ids = []
 
-            for prompt_ref in prompts:
+            for prompt_ref in working_prompts:
                 # Handle both string IDs and dict format (for backward
                 # compatibility)
                 prompt_id = None
@@ -612,7 +690,7 @@ class QueueWorker:
                 prompt_tokens, completion_tokens, model_config, self.log_level
             )
             
-            # Create processing metrics
+            # Create processing metrics for working step
             processing_metrics = {
                 "inputTokens": prompt_tokens,
                 "outputTokens": completion_tokens,
@@ -635,14 +713,135 @@ class QueueWorker:
                         f"be included in processing metrics"
                     )
 
-            # Update the same job document with responseData and
-            # processingMetrics
-            # Update item status to processed (atomically from PROCESSING
-            # to PROCESSED)
+            # Prepare updates for the job document
             processed_updates = {
                 "responseData": parsed_response,
                 "processingMetrics": processing_metrics
             }
+            
+            # STEP 2: Process eval prompt if provided
+            if eval_prompt_id and eval_model_name:
+                if self.log_level == "DEBUG":
+                    print(f"  🔍 Running evaluation step with model: {eval_model_name}")
+                
+                try:
+                    # Fetch eval prompt content
+                    eval_prompt_content = self.fetch_prompt(eval_prompt_id)
+                    if not eval_prompt_content:
+                        raise ValueError(f"Could not fetch eval prompt: {eval_prompt_id}")
+                    
+                    # Get eval model configuration
+                    eval_model_config = self.get_model_config(eval_model_name)
+                    if not eval_model_config:
+                        raise ValueError(f"Could not get eval model configuration: {eval_model_name}")
+                    
+                    # Prepare eval input: combine original requestData + responseData
+                    eval_input = {
+                        "original_input": data,
+                        "working_result": parsed_response
+                    }
+                    eval_input_str = json.dumps(eval_input, ensure_ascii=False, indent=2)
+                    
+                    # Run eval with eval model
+                    (
+                        eval_response_text,
+                        eval_prompt_tokens,
+                        eval_completion_tokens,
+                        eval_total_tokens
+                    ) = complete_with_model(
+                        mdl=eval_model_config,
+                        system_prompt=eval_prompt_content,
+                        user_content=eval_input_str,
+                        temperature=temperature,
+                        max_tokens=eval_model_config["maxToken"],
+                        show_timer=(self.log_level == "DEBUG")
+                    )
+                    
+                    # Parse eval result as JSON
+                    try:
+                        eval_result = json.loads(eval_response_text)
+                    except json.JSONDecodeError:
+                        # Try to repair the JSON
+                        repaired_eval_json = repair_json_comprehensive(eval_response_text)
+                        eval_result = json.loads(repaired_eval_json)
+                    
+                    # Store eval result
+                    processed_updates["evalResult"] = eval_result
+                    
+                    if self.log_level == "DEBUG":
+                        print(f"  ✅ Evaluation completed successfully")
+                
+                except Exception as e:
+                    # Log eval error but don't fail the entire job
+                    print(f"  ⚠️ Evaluation step failed: {str(e)}")
+                    processed_updates["evalResult"] = {
+                        "error": str(e),
+                        "errorType": "EVAL_ERROR"
+                    }
+            
+            # STEP 3: Process meta prompt if provided
+            if meta_prompt_id and meta_model_name:
+                if self.log_level == "DEBUG":
+                    print(f"  🔮 Running meta-prompting step with model: {meta_model_name}")
+                
+                try:
+                    # Fetch meta prompt content
+                    meta_prompt_content = self.fetch_prompt(meta_prompt_id)
+                    if not meta_prompt_content:
+                        raise ValueError(f"Could not fetch meta prompt: {meta_prompt_id}")
+                    
+                    # Get meta model configuration
+                    meta_model_config = self.get_model_config(meta_model_name)
+                    if not meta_model_config:
+                        raise ValueError(f"Could not get meta model configuration: {meta_model_name}")
+                    
+                    # Prepare meta input: eval result + original working prompts
+                    original_prompts_content = []
+                    for prompt_id in prompt_ids:
+                        prompt_content = self.fetch_prompt(prompt_id)
+                        if prompt_content:
+                            original_prompts_content.append(prompt_content)
+                    
+                    meta_input = {
+                        "evaluation": processed_updates.get("evalResult"),
+                        "original_prompts": original_prompts_content,
+                        "working_result": parsed_response
+                    }
+                    meta_input_str = json.dumps(meta_input, ensure_ascii=False, indent=2)
+                    
+                    # Run meta with meta model
+                    (
+                        meta_response_text,
+                        meta_prompt_tokens,
+                        meta_completion_tokens,
+                        meta_total_tokens
+                    ) = complete_with_model(
+                        mdl=meta_model_config,
+                        system_prompt=meta_prompt_content,
+                        user_content=meta_input_str,
+                        temperature=temperature,
+                        max_tokens=meta_model_config["maxToken"],
+                        show_timer=(self.log_level == "DEBUG")
+                    )
+                    
+                    # The meta prompt should return the suggested improved prompt text
+                    # Create a new prompt in the prompts collection
+                    suggested_prompt_id = self._create_suggested_prompt(
+                        meta_response_text, 
+                        client_id,
+                        prompt_ids[0] if prompt_ids else None  # Base on first working prompt
+                    )
+                    
+                    # Store the suggested prompt ID
+                    processed_updates["suggestedPromptId"] = suggested_prompt_id
+                    
+                    if self.log_level == "DEBUG":
+                        print(f"  ✅ Meta-prompting completed, new prompt created: {suggested_prompt_id}")
+                
+                except Exception as e:
+                    # Log meta error but don't fail the entire job
+                    print(f"  ⚠️ Meta-prompting step failed: {str(e)}")
+                    processed_updates["suggestedPromptId"] = None
 
             success = self.atomic_status_update(
                 item_id, "PROCESSING", "PROCESSED", processed_updates

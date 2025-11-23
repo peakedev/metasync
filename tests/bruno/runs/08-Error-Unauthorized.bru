@@ -1,0 +1,16 @@
+meta {
+  name: 08-Error-Unauthorized
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{baseUrl}}/runs
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 401
+}
+

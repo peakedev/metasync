@@ -3,13 +3,18 @@ Stream API router
 Provides streaming LLM responses with client authentication
 """
 import time
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Query
 from fastapi import status as http_status
 from fastapi.responses import StreamingResponse
-from typing import Annotated
+from typing import Annotated, Optional, List
 
 from api.middleware.client_auth import verify_client_auth
-from api.models.stream_models import StreamCreateRequest
+from api.models.stream_models import (
+    StreamCreateRequest, 
+    StreamResponse, 
+    StreamSummaryResponse,
+    StreamStatus
+)
 from api.services.stream_service import get_stream_service
 from api.core.logging import get_logger
 from config import config
@@ -18,6 +23,133 @@ from llm_sdks.registry import SDKRegistry
 logger = get_logger("api.routers.stream")
 
 router = APIRouter()
+
+
+@router.get("", response_model=List[StreamResponse])
+async def list_streams(
+    client_id: str = Depends(verify_client_auth),
+    model: Optional[str] = Query(None, description="Filter by model"),
+    status: Optional[str] = Query(None, description="Filter by status (streaming, completed, error)"),
+    limit: Optional[int] = Query(
+        None, description="Limit the number of results returned", ge=1
+    )
+):
+    """
+    List streams with optional filters.
+    
+    - Requires client authentication (client_id and client_api_key headers)
+    - Returns only streams belonging to the authenticated client
+    - Supports filtering by model and status via query parameters
+    - Supports limiting results with the limit parameter (e.g., limit=10 returns only 10 items)
+    """
+    try:
+        service = get_stream_service()
+        
+        streams = service.list_streams(
+            client_id=client_id,
+            model=model,
+            status=status,
+            limit=limit
+        )
+        
+        return [StreamResponse(
+            streamId=stream["streamId"],
+            clientId=stream["clientId"],
+            model=stream["model"],
+            temperature=stream["temperature"],
+            status=stream["status"],
+            processingMetrics=stream.get("processingMetrics"),
+            _metadata=stream["_metadata"]
+        ) for stream in streams]
+    except HTTPException:
+        raise
+    except ValueError as e:
+        logger.warning("Validation error listing streams", error=str(e))
+        raise HTTPException(
+            status_code=http_status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        logger.error("Error listing streams", error=str(e))
+        raise HTTPException(
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to list streams"
+        )
+
+
+@router.get("/summary", response_model=StreamSummaryResponse)
+async def get_streams_summary(
+    client_id: str = Depends(verify_client_auth),
+    model: Optional[str] = Query(None, description="Filter by model"),
+    status: Optional[str] = Query(None, description="Filter by status (streaming, completed, error)")
+):
+    """
+    Get summary of streams with counts by status.
+    
+    - Requires client authentication (client_id and client_api_key headers)
+    - Returns counts for each status (streaming, completed, error)
+    - Supports filtering by model and status
+    - Clients can only see their own streams
+    """
+    try:
+        service = get_stream_service()
+        
+        summary = service.get_streams_summary(
+            client_id=client_id,
+            model=model,
+            status=status
+        )
+        
+        return StreamSummaryResponse(**summary)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "Error getting stream summary", error=str(e), client_id=client_id
+        )
+        raise HTTPException(
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get stream summary"
+        )
+
+
+@router.get("/{stream_id}", response_model=StreamResponse)
+async def get_stream(
+    stream_id: str,
+    client_id: str = Depends(verify_client_auth)
+):
+    """
+    Get a stream by ID.
+    
+    - Requires client authentication (client_id and client_api_key headers)
+    - Clients can only access their own streams
+    """
+    service = get_stream_service()
+    
+    try:
+        stream = service.get_stream_by_id(stream_id, client_id)
+        
+        return StreamResponse(
+            streamId=str(stream["_id"]),
+            clientId=stream["clientId"],
+            model=stream["model"],
+            temperature=stream["temperature"],
+            status=stream["status"],
+            processingMetrics=stream.get("processingMetrics"),
+            _metadata=stream["_metadata"]
+        )
+    except ValueError as e:
+        logger.warning("Error getting stream", error=str(e), stream_id=stream_id)
+        raise HTTPException(
+            status_code=http_status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+    except Exception as e:
+        logger.error("Error getting stream", error=str(e), stream_id=stream_id)
+        raise HTTPException(
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get stream"
+        )
 
 
 @router.post("")
@@ -139,6 +271,15 @@ async def stream_completion(
                     # The generator's return value is in e.value
                     if e.value and len(e.value) == 3:
                         prompt_tokens, completion_tokens, total_tokens = e.value
+                        logger.info(
+                            f"Captured token usage from stream: "
+                            f"input={prompt_tokens}, output={completion_tokens}, total={total_tokens}"
+                        )
+                    else:
+                        logger.warning(
+                            f"Stream generator did not return token counts. "
+                            f"e.value={e.value}"
+                        )
                     break
             
             # Calculate duration
@@ -149,12 +290,47 @@ async def stream_completion(
                 "text": "".join(full_response)
             }
             
+            # Create processing metrics matching job format
             processing_metrics = {
-                "promptTokens": prompt_tokens,
-                "completionTokens": completion_tokens,
+                "inputTokens": prompt_tokens,
+                "outputTokens": completion_tokens,
                 "totalTokens": total_tokens,
-                "durationSeconds": round(duration, 2)
+                "duration": round(duration, 2)
             }
+            
+            # Calculate cost if model has cost information
+            cost_info = model_config.get("cost")
+            if cost_info:
+                cost_input = cost_info.get("input")
+                cost_output = cost_info.get("output")
+                cost_tokens = cost_info.get("tokens")
+                currency = cost_info.get("currency")
+                
+                logger.info(
+                    f"Model cost config: input={cost_input}, output={cost_output}, "
+                    f"tokens={cost_tokens}, currency={currency}"
+                )
+                
+                # Only add cost if all required fields are present
+                if cost_input is not None and cost_output is not None and cost_tokens is not None and currency:
+                    input_cost = (prompt_tokens / cost_tokens) * cost_input
+                    output_cost = (completion_tokens / cost_tokens) * cost_output
+                    
+                    processing_metrics["inputCost"] = input_cost
+                    processing_metrics["outputCost"] = output_cost
+                    processing_metrics["totalCost"] = input_cost + output_cost
+                    processing_metrics["currency"] = currency
+                    
+                    logger.info(
+                        f"Calculated costs: input=${input_cost:.6f}, output=${output_cost:.6f}, "
+                        f"total=${input_cost + output_cost:.6f} {currency}"
+                    )
+                else:
+                    logger.info(
+                        f"Skipping cost calculation - missing required fields in model config"
+                    )
+            else:
+                logger.info(f"No cost information in model config for {request.model}")
             
             service.update_stream_record(
                 stream_id=stream_id,
@@ -174,7 +350,7 @@ async def stream_completion(
             # Update stream record with error status
             duration = time.time() - start_time
             processing_metrics = {
-                "durationSeconds": round(duration, 2),
+                "duration": round(duration, 2),
                 "error": str(e)
             }
             

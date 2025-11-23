@@ -1,7 +1,7 @@
 """
 Pydantic models for job management API
 """
-from pydantic import BaseModel, Field, field_validator, ConfigDict
+from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
 from typing import Optional, List, Dict, Any
 from enum import Enum
 
@@ -20,13 +20,35 @@ class JobStatus(str, Enum):
 class JobCreateRequest(BaseModel):
     """Request model for creating a new job"""
     operation: str = Field(..., description="Operation type", min_length=1)
-    prompts: List[str] = Field(..., description="List of prompt IDs", min_items=1)
+    # Support both old 'prompts' and new 'workingPrompts' for backward compatibility
+    prompts: Optional[List[str]] = Field(None, description="(Deprecated: use workingPrompts) List of prompt IDs", min_items=1)
+    workingPrompts: Optional[List[str]] = Field(None, description="List of working prompt IDs", min_items=1)
     model: str = Field(..., description="Model name from models collection", min_length=1)
     temperature: float = Field(..., description="Temperature between 0 and 1", ge=0.0, le=1.0)
     priority: int = Field(..., description="Priority between 1 and 1000", ge=1, le=1000)
     id: Optional[str] = Field(None, description="Optional client-provided job ID")
     requestData: Dict[str, Any] = Field(..., description="Free JSON object to be sent to LLM with prompt (most important field)")
     clientReference: Optional[Dict[str, Any]] = Field(None, description="Free JSON object for client reference")
+    # Optimization fields
+    evalPrompt: Optional[str] = Field(None, description="Prompt ID for evaluation step")
+    evalModel: Optional[str] = Field(None, description="Model name for evaluation step")
+    metaPrompt: Optional[str] = Field(None, description="Prompt ID for meta-prompting step")
+    metaModel: Optional[str] = Field(None, description="Model name for meta-prompting step")
+    
+    @field_validator('workingPrompts', 'prompts')
+    @classmethod
+    def validate_prompts(cls, v, info):
+        """Ensure at least one of prompts or workingPrompts is provided."""
+        # This will be called for each field, we'll do the cross-field validation in model_validator
+        return v
+    
+    @model_validator(mode='after')
+    def validate_prompt_fields(self):
+        """Ensure at least one of prompts or workingPrompts is provided."""
+        if not self.prompts and not self.workingPrompts:
+            raise ValueError("Either 'prompts' or 'workingPrompts' must be provided")
+        # If both provided, workingPrompts takes precedence (will be handled in service)
+        return self
 
 
 class JobBatchCreateRequest(BaseModel):
@@ -43,12 +65,20 @@ class JobUpdateRequest(BaseModel):
     """Request model for full job updates (workers/admin only)"""
     status: Optional[JobStatus] = Field(None, description="Job status")
     operation: Optional[str] = Field(None, description="Operation type")
-    prompts: Optional[List[str]] = Field(None, description="List of prompt IDs")
+    prompts: Optional[List[str]] = Field(None, description="(Deprecated: use workingPrompts) List of prompt IDs")
+    workingPrompts: Optional[List[str]] = Field(None, description="List of working prompt IDs")
     model: Optional[str] = Field(None, description="Model name")
     temperature: Optional[float] = Field(None, description="Temperature between 0 and 1", ge=0.0, le=1.0)
     priority: Optional[int] = Field(None, description="Priority between 1 and 1000", ge=1, le=1000)
     requestData: Optional[Dict[str, Any]] = Field(None, description="Free JSON object to be sent to LLM")
     clientReference: Optional[Dict[str, Any]] = Field(None, description="Free JSON object for client reference")
+    # Optimization fields
+    evalPrompt: Optional[str] = Field(None, description="Prompt ID for evaluation step")
+    evalModel: Optional[str] = Field(None, description="Model name for evaluation step")
+    metaPrompt: Optional[str] = Field(None, description="Prompt ID for meta-prompting step")
+    metaModel: Optional[str] = Field(None, description="Model name for meta-prompting step")
+    evalResult: Optional[Dict[str, Any]] = Field(None, description="Evaluation result from eval step")
+    suggestedPromptId: Optional[str] = Field(None, description="Generated prompt ID from meta step")
 
 
 class JobBatchUpdateItem(BaseModel):
@@ -56,12 +86,20 @@ class JobBatchUpdateItem(BaseModel):
     jobId: str = Field(..., description="Job ID to update")
     status: Optional[JobStatus] = Field(None, description="New job status")
     operation: Optional[str] = Field(None, description="Operation type")
-    prompts: Optional[List[str]] = Field(None, description="List of prompt IDs")
+    prompts: Optional[List[str]] = Field(None, description="(Deprecated: use workingPrompts) List of prompt IDs")
+    workingPrompts: Optional[List[str]] = Field(None, description="List of working prompt IDs")
     model: Optional[str] = Field(None, description="Model name")
     temperature: Optional[float] = Field(None, description="Temperature between 0 and 1", ge=0.0, le=1.0)
     priority: Optional[int] = Field(None, description="Priority between 1 and 1000", ge=1, le=1000)
     requestData: Optional[Dict[str, Any]] = Field(None, description="Free JSON object to be sent to LLM")
     clientReference: Optional[Dict[str, Any]] = Field(None, description="Free JSON object for client reference")
+    # Optimization fields
+    evalPrompt: Optional[str] = Field(None, description="Prompt ID for evaluation step")
+    evalModel: Optional[str] = Field(None, description="Model name for evaluation step")
+    metaPrompt: Optional[str] = Field(None, description="Prompt ID for meta-prompting step")
+    metaModel: Optional[str] = Field(None, description="Model name for meta-prompting step")
+    evalResult: Optional[Dict[str, Any]] = Field(None, description="Evaluation result from eval step")
+    suggestedPromptId: Optional[str] = Field(None, description="Generated prompt ID from meta step")
 
 
 class JobBatchUpdateRequest(BaseModel):
@@ -80,8 +118,9 @@ class JobResponse(BaseModel):
     clientId: str = Field(..., description="Client ID that owns the job")
     status: JobStatus = Field(..., description="Job status")
     operation: str = Field(..., description="Operation type")
-    prompts: List[str] = Field(..., description="List of prompt IDs")
-    model: str = Field(..., description="Model name")
+    prompts: Optional[List[str]] = Field(None, description="(Deprecated: use workingPrompts) List of prompt IDs")
+    workingPrompts: Optional[List[str]] = Field(None, description="List of working prompt IDs")
+    model: str = Field(..., description="Model name for working step")
     temperature: float = Field(..., description="Temperature")
     priority: int = Field(..., description="Priority")
     id: Optional[str] = Field(None, description="Client-provided job ID")
@@ -89,6 +128,13 @@ class JobResponse(BaseModel):
     responseData: Optional[Dict[str, Any]] = Field(None, description="Response data from LLM processing (only present after processing)")
     processingMetrics: Optional[Dict[str, Any]] = Field(None, description="Processing metrics including tokens, duration, and costs (only present after processing)")
     clientReference: Optional[Dict[str, Any]] = Field(None, description="Client reference data")
+    # Optimization fields
+    evalPrompt: Optional[str] = Field(None, description="Prompt ID for evaluation step")
+    evalModel: Optional[str] = Field(None, description="Model name for evaluation step")
+    metaPrompt: Optional[str] = Field(None, description="Prompt ID for meta-prompting step")
+    metaModel: Optional[str] = Field(None, description="Model name for meta-prompting step")
+    evalResult: Optional[Dict[str, Any]] = Field(None, description="Evaluation result from eval step (only present after eval processing)")
+    suggestedPromptId: Optional[str] = Field(None, description="Generated prompt ID from meta step (only present after meta processing)")
     metadata: Dict[str, Any] = Field(..., alias="_metadata", description="Metadata object with createdAt, updatedAt, and other relevant metadata")
     
     model_config = ConfigDict(

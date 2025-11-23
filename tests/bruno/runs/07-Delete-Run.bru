@@ -1,0 +1,21 @@
+meta {
+  name: 07-Delete-Run
+  type: http
+  seq: 7
+}
+
+delete {
+  url: {{baseUrl}}/runs/{{runId}}
+  body: none
+  auth: none
+}
+
+headers {
+  client_id: {{clientId}}
+  client_api_key: {{clientApiKey}}
+}
+
+assert {
+  res.status: eq 204
+}
+

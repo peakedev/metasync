@@ -1,0 +1,22 @@
+meta {
+  name: 05-Resume-Run
+  type: http
+  seq: 5
+}
+
+patch {
+  url: {{baseUrl}}/runs/{{runId}}/resume
+  body: none
+  auth: none
+}
+
+headers {
+  client_id: {{clientId}}
+  client_api_key: {{clientApiKey}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.status: eq RUNNING
+}
+
