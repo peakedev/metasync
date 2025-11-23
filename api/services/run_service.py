@@ -159,7 +159,15 @@ class RunService:
             self._seed_next_job(run)
             logger.info("First job seeded successfully", run_id=db_id)
         except Exception as e:
-            logger.error("Failed to seed first job", error=str(e), run_id=db_id)
+            import traceback
+            error_details = traceback.format_exc()
+            logger.error(
+                "Failed to seed first job",
+                error=str(e),
+                error_type=type(e).__name__,
+                run_id=db_id,
+                traceback=error_details
+            )
             # Mark run as failed
             db_update(
                 self.mongo_client,
@@ -168,7 +176,7 @@ class RunService:
                 db_id,
                 {"status": RunStatus.FAILED.value}
             )
-            raise RuntimeError(f"Failed to seed first job: {str(e)}")
+            raise RuntimeError(f"Failed to seed first job: {type(e).__name__}: {str(e)}")
         
         # Return updated run
         return self.get_run_by_id(db_id, client_id)
@@ -183,12 +191,24 @@ class RunService:
         Returns:
             Job ID of the created job
         """
+        logger.info("Starting _seed_next_job", run_keys=list(run.keys()))
+        
         run_id = str(run["_id"])
         client_id = run["clientId"]
         current_model_index = run["currentModelIndex"]
         current_iteration = run["currentIteration"]
         working_models = run["workingModels"]
         max_iterations = run["maxIterations"]
+        
+        logger.info(
+            "Extracted run parameters",
+            run_id=run_id,
+            client_id=client_id,
+            current_model_index=current_model_index,
+            current_iteration=current_iteration,
+            working_models=working_models,
+            max_iterations=max_iterations
+        )
         
         # Determine working prompt(s) to use
         if current_iteration == 0:
@@ -215,27 +235,49 @@ class RunService:
         # Get current working model
         working_model = working_models[current_model_index]
         
-        # Create job using job service
-        job_service = get_job_service()
-        job = job_service.create_job(
-            client_id=client_id,
-            operation="optimize",
-            prompts=None,
-            working_prompts=working_prompt_ids,  # Can be multiple prompts (chained) or single
-            model=working_model,
-            temperature=run["temperature"],
-            priority=run["priority"],
-            request_data=run["requestData"],
-            client_reference={
-                "runId": run_id,
-                "modelIndex": current_model_index,
-                "iteration": current_iteration
-            },
+        logger.info(
+            "Preparing to create job",
+            working_model=working_model,
+            working_prompt_ids=working_prompt_ids,
             eval_prompt=run["evalPromptId"],
             eval_model=run["evalModel"],
             meta_prompt=run["metaPromptId"],
             meta_model=run["metaModel"]
         )
+        
+        # Create job using job service
+        job_service = get_job_service()
+        
+        try:
+            job = job_service.create_job(
+                client_id=client_id,
+                operation="optimize",
+                prompts=None,
+                working_prompts=working_prompt_ids,  # Can be multiple prompts (chained) or single
+                model=working_model,
+                temperature=run["temperature"],
+                priority=run["priority"],
+                request_data=run["requestData"],
+                client_reference={
+                    "runId": run_id,
+                    "modelIndex": current_model_index,
+                    "iteration": current_iteration
+                },
+                eval_prompt=run["evalPromptId"],
+                eval_model=run["evalModel"],
+                meta_prompt=run["metaPromptId"],
+                meta_model=run["metaModel"]
+            )
+            logger.info("Job created successfully", job_id=job.get("jobId"))
+        except Exception as e:
+            import traceback
+            logger.error(
+                "Error creating job in _seed_next_job",
+                error=str(e),
+                error_type=type(e).__name__,
+                traceback=traceback.format_exc()
+            )
+            raise
         
         job_id = job["jobId"]
         
