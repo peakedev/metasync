@@ -100,7 +100,7 @@ See `llm_sdks/README.md` for a comprehensive guide with examples.
 
 ### Optional Environment Variables (with defaults)
 
-- **DB_NAME** — Database name (default: `"poc-llm-processor"`)
+- **DB_NAME** — Database name (default: `"metasync-dev"`)
 - **DOCS_USER** — Username for documentation authentication (default: `"user"`)
 - **POLL_INTERVAL** — Worker polling interval in seconds (default: `"10"`)
 - **MAX_ITEMS_PER_BATCH** — Maximum items per batch processing (default: `"50"`)
