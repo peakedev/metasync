@@ -66,15 +66,19 @@ class ConfigFactory:
                 if name and key and service:
                     attr_name = _model_name_to_attr_name(name)
                     env_var_name = attr_name.upper()
-                    setattr(
-                        self,
-                        attr_name,
-                        get_secret(env_var_name, service, name)
-                    )
+                    try:
+                        setattr(
+                            self,
+                            attr_name,
+                            get_secret(env_var_name, service, name)
+                        )
+                    except Exception as e:
+                        print(
+                            f"Warning: Could not load key for model '{name}': {e}"
+                        )
         except Exception as e:
-            # Log error but don't fail initialization if models can't be
-            # loaded
-            print(f"Warning: Could not load model keys from database: {e}")
+            # Log error but don't fail initialization if models can't be loaded
+            print(f"Warning: Could not load models from database: {e}")
         
         # Client Key Pepper
         self.api_key_pepper = get_secret(
