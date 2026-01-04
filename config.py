@@ -52,29 +52,31 @@ class ConfigFactory:
         try:
             mongo_client = get_mongo_client(self.db_connection_string)
             models = db_read(mongo_client, self.db_name, "models")
-            
+    
             for model in models:
                 name = model.get("name")
                 key = model.get("key")
                 service = model.get("service")
                 sdk = model.get("sdk")
-                
+        
                 # Skip loading keys for test SDK models
                 if sdk == "test":
                     continue
-                
+        
                 if name and key and service:
                     attr_name = _model_name_to_attr_name(name)
                     env_var_name = attr_name.upper()
-                    setattr(
-                        self,
+                    try:
+                        setattr(
+                            self,
                         attr_name,
                         get_secret(env_var_name, service, name)
                     )
+                    except Exception as e:
+                        print(f"Warning: Could not load key for model '{name}': {e}")
         except Exception as e:
-            # Log error but don't fail initialization if models can't be
-            # loaded
-            print(f"Warning: Could not load model keys from database: {e}")
+            # Log error but don't fail initialization if models can't be loaded
+            print(f"Warning: Could not load models from database: {e}")     
         
         # Client Key Pepper
         self.api_key_pepper = get_secret(
@@ -133,6 +135,7 @@ class ConfigFactory:
     def get_model_key(self, model_name: str) -> Optional[str]:
         """Get API key for a model by name"""
         attr_name = _model_name_to_attr_name(model_name)
+        print("\n  ATTRIBUTE NAME:", attr_name)
         return getattr(self, attr_name, None)
     
     def __str__(self):
