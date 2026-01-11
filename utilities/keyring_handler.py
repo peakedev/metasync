@@ -8,5 +8,4 @@ def get_secret(env_var_name: str, keyring_service: str, keyring_username: str, l
         secret_value = keyring.get_password(keyring_service, keyring_username)
         if not secret_value:
             raise ValueError(f"Secret not found in environment variable '{env_var_name}' or keyring ('{keyring_service}', '{keyring_username}')")
-    
     return secret_value

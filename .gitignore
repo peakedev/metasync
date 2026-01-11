@@ -50,6 +50,10 @@ venv.bak/
 *.log
 logs/
 
+# Bruno / API test environments
+# Never commit production credentials.
+tests/bruno/environments/prd.bru
+
 # Database
 *.db
 *.sqlite

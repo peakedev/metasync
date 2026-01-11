@@ -2,10 +2,11 @@
 Model management API router
 Provides CRUD operations for models with admin authentication
 """
-from fastapi import APIRouter, HTTPException, status, Depends
-from typing import List
+from fastapi import APIRouter, HTTPException, status, Depends, Header
+from typing import List, Optional, Annotated
 
 from api.middleware.auth import verify_admin_api_key
+from api.middleware.client_auth import verify_client_auth
 from api.models.model_models import (
     ModelCreateRequest,
     ModelUpdateRequest,
@@ -18,6 +19,43 @@ from api.core.logging import get_logger
 logger = get_logger("api.routers.models")
 
 router = APIRouter()
+
+
+def optional_client_auth(
+    client_id: Annotated[Optional[str], Header(alias="client_id")] = None,
+    client_api_key: Annotated[
+        Optional[str], Header(alias="client_api_key")
+    ] = None
+) -> Optional[str]:
+    """
+    Optional client authentication.
+    
+    Returns client_id if valid, None otherwise.
+    """
+    if client_id is None or client_api_key is None:
+        return None
+    try:
+        return verify_client_auth(client_id, client_api_key)
+    except Exception:
+        return None
+
+
+def optional_admin_auth(
+    admin_api_key: Annotated[
+        Optional[str], Header(alias="admin_api_key")
+    ] = None
+) -> Optional[str]:
+    """
+    Optional admin authentication.
+    
+    Returns admin_api_key if valid, None otherwise.
+    """
+    if admin_api_key is None:
+        return None
+    try:
+        return verify_admin_api_key(admin_api_key)
+    except Exception:
+        return None
 
 
 @router.post("", response_model=ModelCreateResponse, status_code=status.HTTP_201_CREATED)
@@ -70,13 +108,22 @@ async def create_model(
 
 @router.get("", response_model=List[ModelResponse])
 async def list_models(
-    admin_api_key: str = Depends(verify_admin_api_key)
+    client_id: Optional[str] = Depends(optional_client_auth),
+    admin_api_key: Optional[str] = Depends(optional_admin_auth)
 ):
     """
     List all models.
     
     Returns a list of all models (excluding keys).
+    Requires either client authentication (client_id and client_api_key headers) 
+    or admin API key.
     """
+    # Verify at least one authentication method is provided
+    if admin_api_key is None and client_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Client authentication or admin API key is required"
+        )
     try:
         service = get_model_service()
         models = service.list_models()
