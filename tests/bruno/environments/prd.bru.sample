@@ -1,0 +1,8 @@
+vars {
+  # Production environment template (DO NOT COMMIT REAL SECRETS)
+  baseUrl: https://YOUR-PRODUCTION-DEPLOYMENT-URL
+  adminApiKey: REPLACE_ME
+  clientId: REPLACE_ME
+  clientApiKey: REPLACE_ME
+}
+
