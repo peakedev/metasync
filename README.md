@@ -16,12 +16,7 @@ The Metasync Docker image is available on Docker Hub:
 
 ## Future Plans
 
-In time, we want to add a layer of abstraction to allow orchestration of many LLM tasks, automated handling of model rate limiters, built-in multi-provider failover routing, evaluation pipelines, and long-running background jobs.
-
-# 0.5.0
-- Gemini Support
-- Implement proper retry mechanism at job level
-- How to use doc
+In time, we want to add a layer of abstraction to allow orchestration of many LLM tasks, automated handling of model rate limiters and budgets, built-in multi-model routing, proper job failover policies, evaluation pipelines, and long-running background jobs.
 
 # 1.0.0
 - MCP Interface (use metasync as MCP tool) + Simple client Helloworld 
