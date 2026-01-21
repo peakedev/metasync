@@ -1136,18 +1136,51 @@ class JobService:
             query["id"] = job_id
         
         # Add clientReference filters (nested field filtering)
+        # Validate that all provided filters are added to the query
+        client_reference_filter_count = 0
         if client_reference_filters:
             for key, value in client_reference_filters.items():
-                query[f"clientReference.{key}"] = value
+                # Ensure key is not empty
+                if key:
+                    query[f"clientReference.{key}"] = value
+                    client_reference_filter_count += 1
+        
+        # Add soft-delete filter to the main query (combine match stages)
+        query["_metadata.isDeleted"] = {"$ne": True}
+        
+        # Validate that filters were properly applied
+        if operation and "operation" not in query:
+            logger.warning("Operation filter was provided but not added to query", operation=operation)
+        if model and "model" not in query:
+            logger.warning("Model filter was provided but not added to query", model=model)
+        if job_id and "id" not in query:
+            logger.warning("Job ID filter was provided but not added to query", job_id=job_id)
+        if client_reference_filters and client_reference_filter_count == 0:
+            logger.warning(
+                "ClientReference filters were provided but none were added to query",
+                client_reference_filters=client_reference_filters
+            )
+        
+        # Log the final query for debugging
+        logger.debug(
+            "Executing jobs summary query",
+            client_id=client_id,
+            query=query,
+            filters_applied={
+                "operation": operation,
+                "model": model,
+                "job_id": job_id,
+                "client_reference_filters_count": client_reference_filter_count
+            }
+        )
         
         # Use aggregation to count by status
         db = self.mongo_client[self.db_name]
         collection = db[self.collection_name]
         
-        # Build aggregation pipeline
+        # Build aggregation pipeline with combined match stage
         pipeline = [
             {"$match": query},
-            {"$match": {"_metadata.isDeleted": {"$ne": True}}},  # Exclude soft-deleted
             {
                 "$group": {
                     "_id": "$status",
@@ -1184,11 +1217,19 @@ class JobService:
                     summary["total"] += count
             
             # Aggregate processingMetrics from PROCESSED and CONSUMED jobs
+            # metrics_query includes all filters from the main query (clientId, operation, model, id, clientReference filters, and _metadata.isDeleted)
             metrics_query = {
                 **query,
                 "status": {"$in": [JobStatus.PROCESSED.value, JobStatus.CONSUMED.value]},
                 "processingMetrics": {"$exists": True, "$ne": None}
             }
+            
+            # Log the metrics query for debugging
+            logger.debug(
+                "Executing metrics query",
+                client_id=client_id,
+                metrics_query=metrics_query
+            )
             
             def find_metrics_operation():
                 return list(collection.find(metrics_query, {"processingMetrics": 1}))

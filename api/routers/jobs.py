@@ -260,11 +260,23 @@ async def get_jobs_summary(
             if key.startswith("clientReference."):
                 # Extract the field name after "clientReference."
                 field_name = key[len("clientReference."):]
-                client_reference_filters[field_name] = value
+                # Skip empty field names or empty values (but allow "0" and "false" as valid values)
+                if field_name and value is not None:
+                    client_reference_filters[field_name] = value
         
         # Convert empty dict to None if no filters
         if not client_reference_filters:
             client_reference_filters = None
+        else:
+            # Log the extracted clientReference filters for debugging
+            logger.info(
+                "Parsed clientReference filters",
+                client_id=client_id,
+                filters=client_reference_filters,
+                operation=operation,
+                model=model,
+                job_id=id
+            )
         
         summary = service.get_jobs_summary(
             client_id=client_id,
