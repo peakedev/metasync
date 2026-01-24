@@ -467,7 +467,8 @@ class JobService:
         operation: Optional[str] = None,
         model: Optional[str] = None,
         priority: Optional[int] = None,
-        limit: Optional[int] = None
+        limit: Optional[int] = None,
+        client_reference_filters: Optional[Dict[str, Any]] = None
     ) -> List[Dict[str, Any]]:
         """
         List jobs with access control and optional filters.
@@ -481,6 +482,8 @@ class JobService:
             model: Optional filter by model
             priority: Optional filter by priority
             limit: Optional limit on number of results returned
+            client_reference_filters: Optional dict of filters for clientReference fields
+                e.g., {"runId": "123"} will filter where clientReference.runId == "123"
             
         Returns:
             List of job dictionaries
@@ -510,6 +513,13 @@ class JobService:
         
         if priority is not None:
             query["priority"] = priority
+        
+        # Add clientReference filters (nested field filtering)
+        if client_reference_filters:
+            for key, value in client_reference_filters.items():
+                # Ensure key is not empty
+                if key:
+                    query[f"clientReference.{key}"] = value
         
         jobs = db_read(
             self.mongo_client,

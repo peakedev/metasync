@@ -160,6 +160,7 @@ async def create_jobs_batch(
 
 @router.get("", response_model=List[JobResponse])
 async def list_jobs(
+    request: Request,
     client_id: Optional[str] = Depends(optional_client_auth),
     admin_api_key: Optional[str] = Depends(optional_admin_auth),
     jobId: Optional[str] = Query(None, description="Filter by client-provided job ID"),
@@ -181,6 +182,8 @@ async def list_jobs(
     - Requires either client authentication OR admin API key
     - Supports filtering by jobId, status, operation, model, and priority
       via query parameters
+    - Supports filtering by any clientReference field using query parameters
+      like: clientReference.runId=123
     - Supports limiting results with the limit parameter (e.g., limit=10
       returns only 10 items)
     """
@@ -197,6 +200,21 @@ async def list_jobs(
     try:
         service = get_job_service()
         
+        # Parse clientReference filters from query parameters
+        # Look for query params that start with "clientReference."
+        client_reference_filters: Dict[str, Any] = {}
+        for key, value in request.query_params.items():
+            if key.startswith("clientReference."):
+                # Extract the field name after "clientReference."
+                field_name = key[len("clientReference."):]
+                # Skip empty field names or empty values (but allow "0" and "false" as valid values)
+                if field_name and value is not None:
+                    client_reference_filters[field_name] = value
+        
+        # Convert empty dict to None if no filters
+        if not client_reference_filters:
+            client_reference_filters = None
+        
         jobs = service.list_jobs(
             client_id=client_id,
             is_admin=is_admin,
@@ -205,7 +223,8 @@ async def list_jobs(
             operation=operation,
             model=model,
             priority=priority,
-            limit=limit
+            limit=limit,
+            client_reference_filters=client_reference_filters
         )
         
         return [JobResponse(**job) for job in jobs]
