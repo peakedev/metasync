@@ -62,24 +62,26 @@ class WorkerService:
         self,
         client_id: str,
         worker_id: str,
-        config: WorkerConfig
+        config: WorkerConfig,
+        group: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Create a new worker.
-        
+
         Args:
             client_id: Client ID creating the worker
             worker_id: Client-provided worker identifier
             config: Worker configuration
-            
+            group: Optional group name for batch operations
+
         Returns:
             Created worker dictionary
-            
+
         Raises:
             ValueError: If validation fails
         """
-        business_logger.log_operation("worker_service", "create_worker", client_id=client_id, worker_id=worker_id)
-        
+        business_logger.log_operation("worker_service", "create_worker", client_id=client_id, worker_id=worker_id, group=group)
+
         # Check if worker_id is unique for this client
         existing = db_find_one(
             self.mongo_client,
@@ -89,7 +91,7 @@ class WorkerService:
         )
         if existing:
             raise ValueError(f"Worker ID '{worker_id}' already exists for this client")
-        
+
         # Create worker document
         worker_doc = {
             "workerId": worker_id,
@@ -102,9 +104,10 @@ class WorkerService:
                 "operationFilter": config.operationFilter,
                 "clientReferenceFilters": config.clientReferenceFilters
             },
+            "group": group,
             "threadInfo": None
         }
-        
+
         # Save to database
         db_id = db_create(
             self.mongo_client,
@@ -112,13 +115,13 @@ class WorkerService:
             self.collection_name,
             worker_doc
         )
-        
+
         if not db_id:
             business_logger.log_error("worker_service", "create_worker", "Failed to create worker in database")
             raise RuntimeError("Failed to create worker in database")
-        
-        logger.info("Worker created successfully", worker_id=db_id, client_id=client_id, worker_identifier=worker_id)
-        
+
+        logger.info("Worker created successfully", worker_id=db_id, client_id=client_id, worker_identifier=worker_id, group=group)
+
         # Return the created worker
         return self.get_worker_by_id(db_id, client_id)
     
@@ -435,15 +438,15 @@ class WorkerService:
     def _format_worker_response(self, worker: Dict[str, Any]) -> Dict[str, Any]:
         """
         Format a worker document for API response.
-        
+
         Args:
             worker: Raw worker document from database
-            
+
         Returns:
             Formatted worker dictionary
         """
         config_data = worker.get("config", {})
-        
+
         return {
             "workerId": str(worker["_id"]),
             "clientId": worker.get("clientId"),
@@ -455,8 +458,114 @@ class WorkerService:
                 "operationFilter": config_data.get("operationFilter"),
                 "clientReferenceFilters": config_data.get("clientReferenceFilters")
             },
+            "group": worker.get("group"),
             "threadInfo": worker.get("threadInfo"),
             "_metadata": worker.get("_metadata", {})
+        }
+
+    def get_workers_by_group(
+        self,
+        group: str,
+        client_id: Optional[str] = None,
+        is_admin: bool = False
+    ) -> List[Dict[str, Any]]:
+        """
+        Get all workers in a specific group.
+
+        Args:
+            group: Group name to filter by
+            client_id: Client ID for access control
+            is_admin: Whether the requester is an admin
+
+        Returns:
+            List of worker dictionaries in the group
+        """
+        business_logger.log_operation("worker_service", "get_workers_by_group", group=group, client_id=client_id)
+
+        # Build query
+        query = {"group": group}
+        if not is_admin:
+            if not client_id:
+                raise ValueError("Client ID is required for non-admin users")
+            query["clientId"] = client_id
+
+        workers = db_read(
+            self.mongo_client,
+            self.db_name,
+            self.collection_name,
+            query=query
+        )
+
+        result = []
+        for worker in workers:
+            result.append(self._format_worker_response(worker))
+
+        logger.info("Listed workers by group", group=group, count=len(result), client_id=client_id)
+        return result
+
+    def create_workers_batch(
+        self,
+        client_id: str,
+        worker_id_prefix: str,
+        count: int,
+        config: WorkerConfig,
+        group: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Create multiple workers in batch.
+
+        Args:
+            client_id: Client ID creating the workers
+            worker_id_prefix: Prefix for worker identifiers
+            count: Number of workers to create
+            config: Worker configuration (shared by all workers)
+            group: Optional group name for batch operations
+
+        Returns:
+            Dictionary with created workers, failed creations, and counts
+        """
+        business_logger.log_operation(
+            "worker_service", "create_workers_batch",
+            client_id=client_id, prefix=worker_id_prefix, count=count, group=group
+        )
+
+        created = []
+        failed = []
+
+        for i in range(1, count + 1):
+            worker_id = f"{worker_id_prefix}-{i}"
+            try:
+                worker = self.create_worker(
+                    client_id=client_id,
+                    worker_id=worker_id,
+                    config=config,
+                    group=group
+                )
+                created.append(worker)
+            except Exception as e:
+                logger.warning(
+                    "Failed to create worker in batch",
+                    worker_id=worker_id,
+                    error=str(e)
+                )
+                failed.append({
+                    "workerId": worker_id,
+                    "error": str(e)
+                })
+
+        logger.info(
+            "Batch worker creation completed",
+            total_requested=count,
+            total_created=len(created),
+            total_failed=len(failed),
+            client_id=client_id
+        )
+
+        return {
+            "created": created,
+            "failed": failed,
+            "total_requested": count,
+            "total_created": len(created)
         }
 
 
