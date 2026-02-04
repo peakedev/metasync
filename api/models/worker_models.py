@@ -46,6 +46,12 @@ class WorkerCreateRequest(BaseModel):
         max_length=100
     )
     config: WorkerConfig = Field(..., description="Worker configuration")
+    group: Optional[str] = Field(
+        None,
+        description="Optional group name for batch operations",
+        min_length=1,
+        max_length=100
+    )
 
 
 class WorkerUpdateRequest(BaseModel):
@@ -59,6 +65,10 @@ class WorkerResponse(BaseModel):
     clientId: str = Field(..., description="Client ID that owns the worker")
     status: WorkerStatus = Field(..., description="Worker status")
     config: WorkerConfig = Field(..., description="Worker configuration")
+    group: Optional[str] = Field(
+        None,
+        description="Optional group name for batch operations"
+    )
     threadInfo: Optional[Dict[str, Any]] = Field(
         None, description="Thread information (if running)"
     )
@@ -85,6 +95,7 @@ class WorkerResponse(BaseModel):
                     "operationFilter": "process",
                     "clientReferenceFilters": {"randomProp": "X"}
                 },
+                "group": "blue",
                 "threadInfo": None,
                 "_metadata": {
                     "createdAt": "2024-01-01T00:00:00",
@@ -148,3 +159,132 @@ class WorkerSummaryResponse(BaseModel):
     )
 
 
+class BatchAction(str, Enum):
+    """Actions that can be performed on workers in batch"""
+    START = "start"
+    STOP = "stop"
+
+
+class WorkerBatchCreateRequest(BaseModel):
+    """Request model for batch creating workers"""
+    workerIdPrefix: str = Field(
+        ...,
+        description="Prefix for worker identifiers. Workers will be named {prefix}-1, {prefix}-2, etc.",
+        min_length=1,
+        max_length=90
+    )
+    count: int = Field(
+        ...,
+        description="Number of workers to create",
+        ge=1,
+        le=100
+    )
+    config: WorkerConfig = Field(..., description="Worker configuration (shared by all workers)")
+    group: Optional[str] = Field(
+        None,
+        description="Optional group name for batch operations",
+        min_length=1,
+        max_length=100
+    )
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "workerIdPrefix": "worker-group-a",
+                "count": 5,
+                "config": {
+                    "pollInterval": 10,
+                    "maxItemsPerBatch": 50,
+                    "modelFilter": "o3-mini"
+                },
+                "group": "blue"
+            }
+        }
+    )
+
+
+class WorkerBatchUpdateRequest(BaseModel):
+    """Request model for batch updating workers (start/stop)"""
+    action: BatchAction = Field(
+        ...,
+        description="Action to perform on the workers"
+    )
+    workerIds: Optional[List[str]] = Field(
+        None,
+        description="List of worker IDs to update. Either workerIds or group must be provided."
+    )
+    group: Optional[str] = Field(
+        None,
+        description="Group name to select workers. Either workerIds or group must be provided."
+    )
+
+    @field_validator('workerIds', 'group')
+    @classmethod
+    def validate_target_selection(cls, v, info):
+        return v
+
+    def model_post_init(self, __context):
+        """Validate that either workerIds or group is provided, but not both empty"""
+        if not self.workerIds and not self.group:
+            raise ValueError("Either workerIds or group must be provided")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "action": "start",
+                "group": "blue"
+            }
+        }
+    )
+
+
+class WorkerBatchCreateResponse(BaseModel):
+    """Response model for batch worker creation"""
+    created: List[WorkerResponse] = Field(
+        ...,
+        description="List of successfully created workers"
+    )
+    failed: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="List of failed creations with error details"
+    )
+    total_requested: int = Field(..., description="Total number of workers requested")
+    total_created: int = Field(..., description="Number of workers successfully created")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "created": [],
+                "failed": [],
+                "total_requested": 5,
+                "total_created": 5
+            }
+        }
+    )
+
+
+class WorkerBatchUpdateResponse(BaseModel):
+    """Response model for batch worker update (start/stop)"""
+    updated: List[WorkerResponse] = Field(
+        ...,
+        description="List of successfully updated workers"
+    )
+    failed: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="List of failed updates with error details"
+    )
+    action: BatchAction = Field(..., description="Action that was performed")
+    total_requested: int = Field(..., description="Total number of workers targeted")
+    total_updated: int = Field(..., description="Number of workers successfully updated")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "updated": [],
+                "failed": [],
+                "action": "start",
+                "total_requested": 5,
+                "total_updated": 5
+            }
+        }
+    )
