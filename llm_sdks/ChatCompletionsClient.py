@@ -48,6 +48,24 @@ class ChatCompletionsClientSDK(BaseLLMSDK):
             )
             raise ValueError(msg)
 
+    def _create_client(
+        self,
+        endpoint: str,
+        api_key: str,
+        api_version: str
+    ) -> ChatCompletionsClient:
+        """
+        Create a ChatCompletionsClient with pass-through header
+        so model_extras are forwarded to the backend.
+        """
+        return ChatCompletionsClient(
+            endpoint=endpoint,
+            credential=AzureKeyCredential(api_key),
+            api_version=api_version,
+            transport=_transport,
+            headers={"extra-parameters": "pass-through"},
+        )
+
     def complete(
         self,
         config: Dict[str, Any],
@@ -84,13 +102,7 @@ class ChatCompletionsClientSDK(BaseLLMSDK):
         content = (system_prompt or "") + (user_content or "")
         messages = [{"role": "system", "content": content}]
 
-        # Create client
-        client = ChatCompletionsClient(
-            endpoint=endpoint,
-            credential=AzureKeyCredential(api_key),
-            api_version=api_version,
-            transport=_transport,
-        )
+        client = self._create_client(endpoint, api_key, api_version)
 
         # Use model_extras for max_completion_tokens since the
         # Azure AI Inference SDK only accepts max_tokens natively.
@@ -176,25 +188,21 @@ class ChatCompletionsClientSDK(BaseLLMSDK):
         content = (system_prompt or "") + (user_content or "")
         messages = [{"role": "system", "content": content}]
 
-        # Create client
-        client = ChatCompletionsClient(
-            endpoint=endpoint,
-            credential=AzureKeyCredential(api_key),
-            api_version=api_version,
-            transport=_transport,
-        )
+        client = self._create_client(endpoint, api_key, api_version)
 
-        # Use model_extras for max_completion_tokens since the
-        # Azure AI Inference SDK only accepts max_tokens natively.
+        # stream_options tells the backend to include token usage
+        # in the final streaming chunk.
+        extras = {
+            "stream_options": {"include_usage": True}
+        }
         if config.get("maxCompletionToken"):
+            extras["max_completion_tokens"] = max_tokens
             response = client.complete(
                 model=deployment,
                 messages=messages,
                 temperature=temperature,
                 stream=True,
-                model_extras={
-                    "max_completion_tokens": max_tokens
-                },
+                model_extras=extras,
             )
         else:
             response = client.complete(
@@ -203,6 +211,7 @@ class ChatCompletionsClientSDK(BaseLLMSDK):
                 temperature=temperature,
                 max_tokens=max_tokens,
                 stream=True,
+                model_extras=extras,
             )
 
         # Stream the response chunks
