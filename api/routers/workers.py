@@ -13,7 +13,12 @@ from api.models.worker_models import (
     WorkerResponse,
     WorkerStatus,
     WorkerOverviewResponse,
-    WorkerSummaryResponse
+    WorkerSummaryResponse,
+    WorkerBatchCreateRequest,
+    WorkerBatchCreateResponse,
+    WorkerBatchUpdateRequest,
+    WorkerBatchUpdateResponse,
+    BatchAction
 )
 from api.services.worker_service import get_worker_service
 from api.services.worker_manager import get_worker_manager
@@ -68,10 +73,11 @@ async def create_worker(
 ):
     """
     Create a new worker.
-    
+
     - Requires client authentication (client_id and client_api_key
       headers)
     - Worker is created in stopped state
+    - Optionally assign to a group for batch operations
     - Returns the created worker data
     """
     try:
@@ -79,9 +85,10 @@ async def create_worker(
         worker = service.create_worker(
             client_id=client_id,
             worker_id=request.workerId,
-            config=request.config
+            config=request.config,
+            group=request.group
         )
-        
+
         return WorkerResponse(**worker)
     except ValueError as e:
         logger.warning("Validation error creating worker", error=str(e))
@@ -103,7 +110,7 @@ async def list_workers(
 ):
     """
     List all workers for the authenticated client.
-    
+
     - Requires client authentication (client_id and client_api_key
       headers)
     - Clients can only see their own workers
@@ -111,7 +118,7 @@ async def list_workers(
     try:
         service = get_worker_service()
         workers = service.list_workers(client_id=client_id)
-        
+
         return [WorkerResponse(**worker) for worker in workers]
     except HTTPException:
         raise
@@ -120,6 +127,182 @@ async def list_workers(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to list workers"
+        )
+
+
+@router.post("/batch", response_model=WorkerBatchCreateResponse, status_code=status.HTTP_201_CREATED)
+async def create_workers_batch(
+    request: WorkerBatchCreateRequest,
+    client_id: str = Depends(verify_client_auth)
+):
+    """
+    Create multiple workers in batch.
+
+    - Requires client authentication (client_id and client_api_key headers)
+    - Workers are created in stopped state
+    - Workers are named {workerIdPrefix}-1, {workerIdPrefix}-2, etc.
+    - Optionally assign all workers to a group for batch operations
+    - Returns list of created workers and any failures
+    """
+    try:
+        service = get_worker_service()
+        result = service.create_workers_batch(
+            client_id=client_id,
+            worker_id_prefix=request.workerIdPrefix,
+            count=request.count,
+            config=request.config,
+            group=request.group
+        )
+
+        return WorkerBatchCreateResponse(
+            created=[WorkerResponse(**w) for w in result["created"]],
+            failed=result["failed"],
+            total_requested=result["total_requested"],
+            total_created=result["total_created"]
+        )
+    except ValueError as e:
+        logger.warning("Validation error in batch worker creation", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        logger.error("Error creating workers in batch", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create workers in batch"
+        )
+
+
+@router.patch("/batch", response_model=WorkerBatchUpdateResponse)
+async def update_workers_batch(
+    request: WorkerBatchUpdateRequest,
+    client_id: str = Depends(verify_client_auth)
+):
+    """
+    Batch update workers (start/stop).
+
+    - Requires client authentication (client_id and client_api_key headers)
+    - Specify workers by workerIds array OR by group name
+    - Actions: "start" or "stop"
+    - Returns list of updated workers and any failures
+    """
+    try:
+        service = get_worker_service()
+        manager = get_worker_manager()
+
+        # Get list of workers to update
+        workers_to_update = []
+
+        if request.group:
+            # Get workers by group
+            workers_to_update = service.get_workers_by_group(
+                group=request.group,
+                client_id=client_id
+            )
+        elif request.workerIds:
+            # Get workers by IDs
+            for worker_id in request.workerIds:
+                try:
+                    worker = service.get_worker_by_id(worker_id, client_id=client_id)
+                    workers_to_update.append(worker)
+                except ValueError as e:
+                    logger.warning(
+                        "Worker not found for batch update",
+                        worker_id=worker_id,
+                        error=str(e)
+                    )
+
+        updated = []
+        failed = []
+        total_requested = len(workers_to_update) if workers_to_update else len(request.workerIds or [])
+
+        for worker in workers_to_update:
+            worker_id = worker["workerId"]
+            current_status = worker.get("status")
+
+            try:
+                if request.action == BatchAction.START:
+                    # Check if already running
+                    if current_status == WorkerStatus.RUNNING.value:
+                        failed.append({
+                            "workerId": worker_id,
+                            "error": "Worker is already running"
+                        })
+                        continue
+
+                    success = manager.start_worker(worker_id)
+                    if not success:
+                        failed.append({
+                            "workerId": worker_id,
+                            "error": "Failed to start worker"
+                        })
+                        continue
+
+                elif request.action == BatchAction.STOP:
+                    # Check if already stopped
+                    if current_status == WorkerStatus.STOPPED.value:
+                        failed.append({
+                            "workerId": worker_id,
+                            "error": "Worker is already stopped"
+                        })
+                        continue
+
+                    success = manager.stop_worker(worker_id)
+                    if not success:
+                        failed.append({
+                            "workerId": worker_id,
+                            "error": "Failed to stop worker"
+                        })
+                        continue
+
+                # Get updated worker status
+                updated_worker = manager.get_worker_status(worker_id)
+                if not updated_worker:
+                    updated_worker = service.get_worker_by_id(worker_id, client_id=client_id)
+                updated.append(updated_worker)
+
+            except Exception as e:
+                logger.warning(
+                    "Failed to update worker in batch",
+                    worker_id=worker_id,
+                    action=request.action.value,
+                    error=str(e)
+                )
+                failed.append({
+                    "workerId": worker_id,
+                    "error": str(e)
+                })
+
+        logger.info(
+            "Batch worker update completed",
+            action=request.action.value,
+            total_requested=total_requested,
+            total_updated=len(updated),
+            total_failed=len(failed)
+        )
+
+        return WorkerBatchUpdateResponse(
+            updated=[WorkerResponse(**w) for w in updated],
+            failed=failed,
+            action=request.action,
+            total_requested=total_requested,
+            total_updated=len(updated)
+        )
+
+    except HTTPException:
+        raise
+    except ValueError as e:
+        logger.warning("Validation error in batch worker update", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        logger.error("Error updating workers in batch", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update workers in batch"
         )
 
 
