@@ -92,20 +92,24 @@ class ChatCompletionsClientSDK(BaseLLMSDK):
             transport=_transport,
         )
 
-        # Build token limit kwarg based on model config
-        token_kwargs = {}
+        # Use model_extras for max_completion_tokens since the
+        # Azure AI Inference SDK only accepts max_tokens natively.
         if config.get("maxCompletionToken"):
-            token_kwargs["max_completion_tokens"] = max_tokens
+            response = client.complete(
+                model=deployment,
+                messages=messages,
+                temperature=temperature,
+                model_extras={
+                    "max_completion_tokens": max_tokens
+                },
+            )
         else:
-            token_kwargs["max_tokens"] = max_tokens
-
-        # Make the API call
-        response = client.complete(
-            model=deployment,
-            messages=messages,
-            temperature=temperature,
-            **token_kwargs,
-        )
+            response = client.complete(
+                model=deployment,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+            )
 
         # Extract response and usage
         response_text = response.choices[0].message["content"]
@@ -180,24 +184,26 @@ class ChatCompletionsClientSDK(BaseLLMSDK):
             transport=_transport,
         )
 
-        # Build token limit kwarg based on model config
-        token_kwargs = {}
+        # Use model_extras for max_completion_tokens since the
+        # Azure AI Inference SDK only accepts max_tokens natively.
         if config.get("maxCompletionToken"):
-            token_kwargs["max_completion_tokens"] = max_tokens
+            response = client.complete(
+                model=deployment,
+                messages=messages,
+                temperature=temperature,
+                stream=True,
+                model_extras={
+                    "max_completion_tokens": max_tokens
+                },
+            )
         else:
-            token_kwargs["max_tokens"] = max_tokens
-
-        # Make the streaming API call
-        response = client.complete(
-            model=deployment,
-            messages=messages,
-            temperature=temperature,
-            **token_kwargs,
-            stream=True,
-            model_extras={
-                "stream_options": {"include_usage": True}
-            },
-        )
+            response = client.complete(
+                model=deployment,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                stream=True,
+            )
 
         # Stream the response chunks
         prompt_tokens = 0
