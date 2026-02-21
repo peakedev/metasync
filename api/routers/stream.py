@@ -257,7 +257,7 @@ async def stream_completion(
                 system_prompt=system_prompt,
                 user_content=request.userPrompt,
                 temperature=temperature,
-                max_tokens=model_config.get("maxToken", 100000),
+                max_tokens=model_config.get("maxCompletionToken") or model_config.get("maxToken", 100000),
                 api_key=api_key
             )
             

@@ -574,7 +574,7 @@ class QueueWorker:
                 system_prompt=combined_prompt,
                 user_content=user_content,
                 temperature=temperature,
-                max_tokens=model_config["maxToken"],
+                max_tokens=model_config.get("maxCompletionToken") or model_config["maxToken"],
                 show_timer=(self.log_level == "DEBUG")
             )
 
@@ -753,7 +753,7 @@ class QueueWorker:
                         system_prompt=eval_prompt_content,
                         user_content=eval_input_str,
                         temperature=temperature,
-                        max_tokens=eval_model_config["maxToken"],
+                        max_tokens=eval_model_config.get("maxCompletionToken") or eval_model_config["maxToken"],
                         show_timer=(self.log_level == "DEBUG")
                     )
                     
@@ -820,7 +820,7 @@ class QueueWorker:
                         system_prompt=meta_prompt_content,
                         user_content=meta_input_str,
                         temperature=temperature,
-                        max_tokens=meta_model_config["maxToken"],
+                        max_tokens=meta_model_config.get("maxCompletionToken") or meta_model_config["maxToken"],
                         show_timer=(self.log_level == "DEBUG")
                     )
                     

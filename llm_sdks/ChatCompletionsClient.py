@@ -92,12 +92,19 @@ class ChatCompletionsClientSDK(BaseLLMSDK):
             transport=_transport,
         )
 
+        # Build token limit kwarg based on model config
+        token_kwargs = {}
+        if config.get("maxCompletionToken"):
+            token_kwargs["max_completion_tokens"] = max_tokens
+        else:
+            token_kwargs["max_tokens"] = max_tokens
+
         # Make the API call
         response = client.complete(
             model=deployment,
             messages=messages,
             temperature=temperature,
-            max_tokens=max_tokens,
+            **token_kwargs,
         )
 
         # Extract response and usage
@@ -166,12 +173,19 @@ class ChatCompletionsClientSDK(BaseLLMSDK):
             transport=_transport,
         )
 
+        # Build token limit kwarg based on model config
+        token_kwargs = {}
+        if config.get("maxCompletionToken"):
+            token_kwargs["max_completion_tokens"] = max_tokens
+        else:
+            token_kwargs["max_tokens"] = max_tokens
+
         # Make the streaming API call
         response = client.complete(
             model=deployment,
             messages=messages,
             temperature=temperature,
-            max_tokens=max_tokens,
+            **token_kwargs,
             stream=True,
         )
 

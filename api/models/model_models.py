@@ -43,6 +43,11 @@ class ModelCreateRequest(BaseModel):
     service: Optional[str] = Field(None, description="Service name for local keyring lookup only (optional). Used to determine which keyring service to query when loading API keys from the local keychain. Not used for actual LLM API calls.", min_length=1)
     key: str = Field(..., description="API key identifier", min_length=1)
     maxToken: int = Field(..., description="Maximum tokens", gt=0)
+    maxCompletionToken: Optional[int] = Field(
+        None,
+        description="Maximum completion tokens (use instead of maxToken for models requiring max_completion_tokens)",
+        gt=0
+    )
     minTemperature: float = Field(
         ..., description="Minimum temperature", ge=0, le=2
     )
@@ -79,6 +84,11 @@ class ModelUpdateRequest(BaseModel):
     service: Optional[str] = Field(None, description="Service name for local keyring lookup only (optional). Used to determine which keyring service to query when loading API keys from the local keychain. Not used for actual LLM API calls.", min_length=1)
     key: Optional[str] = Field(None, description="API key identifier", min_length=1)
     maxToken: Optional[int] = Field(None, description="Maximum tokens", gt=0)
+    maxCompletionToken: Optional[int] = Field(
+        None,
+        description="Maximum completion tokens (use instead of maxToken for models requiring max_completion_tokens)",
+        gt=0
+    )
     minTemperature: Optional[float] = Field(None, description="Minimum temperature", ge=0, le=2)
     maxTemperature: Optional[float] = Field(None, description="Maximum temperature", ge=0, le=2)
     cost: Optional[CostModel] = Field(None, description="Cost structure")
@@ -114,6 +124,10 @@ class ModelResponse(BaseModel):
     deployment: str = Field(..., description="Deployment name")
     service: Optional[str] = Field(None, description="Service name for local keyring lookup only (optional). Used to determine which keyring service to query when loading API keys from the local keychain. Not used for actual LLM API calls.")
     maxToken: int = Field(..., description="Maximum tokens")
+    maxCompletionToken: Optional[int] = Field(
+        None,
+        description="Maximum completion tokens (for models requiring max_completion_tokens)"
+    )
     minTemperature: float = Field(..., description="Minimum temperature")
     maxTemperature: float = Field(..., description="Maximum temperature")
     cost: CostModel = Field(..., description="Cost structure")
@@ -167,6 +181,10 @@ class ModelCreateResponse(BaseModel):
     service: Optional[str] = Field(None, description="Service name for local keyring lookup only (optional). Used to determine which keyring service to query when loading API keys from the local keychain. Not used for actual LLM API calls.")
     key: str = Field(..., description="API key identifier (only returned once during creation)")
     maxToken: int = Field(..., description="Maximum tokens")
+    maxCompletionToken: Optional[int] = Field(
+        None,
+        description="Maximum completion tokens (for models requiring max_completion_tokens)"
+    )
     minTemperature: float = Field(..., description="Minimum temperature")
     maxTemperature: float = Field(..., description="Maximum temperature")
     cost: CostModel = Field(..., description="Cost structure")

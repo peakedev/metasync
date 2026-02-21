@@ -66,6 +66,10 @@ class ModelService:
         if model_data.get("service") is not None:
             model_doc["service"] = model_data["service"]
         
+        # Only include maxCompletionToken if provided
+        if model_data.get("maxCompletionToken") is not None:
+            model_doc["maxCompletionToken"] = model_data["maxCompletionToken"]
+        
         # Save to database (metadata will be added by db_create)
         db_id = db_create(
             self.mongo_client,
@@ -105,6 +109,7 @@ class ModelService:
             "service": created_model["service"],
             "key": created_model["key"],
             "maxToken": created_model["maxToken"],
+            "maxCompletionToken": created_model.get("maxCompletionToken"),
             "minTemperature": created_model["minTemperature"],
             "maxTemperature": created_model["maxTemperature"],
             "cost": created_model["cost"],
@@ -136,6 +141,7 @@ class ModelService:
                 "deployment": 1,
                 "service": 1,
                 "maxToken": 1,
+                "maxCompletionToken": 1,
                 "minTemperature": 1,
                 "maxTemperature": 1,
                 "cost": 1,
@@ -155,6 +161,7 @@ class ModelService:
                 "deployment": model.get("deployment"),
                 "service": model.get("service"),
                 "maxToken": model.get("maxToken"),
+                "maxCompletionToken": model.get("maxCompletionToken"),
                 "minTemperature": model.get("minTemperature"),
                 "maxTemperature": model.get("maxTemperature"),
                 "cost": model.get("cost"),
@@ -192,6 +199,7 @@ class ModelService:
                     "deployment": 1,
                     "service": 1,
                     "maxToken": 1,
+                    "maxCompletionToken": 1,
                     "minTemperature": 1,
                     "maxTemperature": 1,
                     "cost": 1,
@@ -216,6 +224,7 @@ class ModelService:
             "deployment": model.get("deployment"),
             "service": model.get("service"),
             "maxToken": model.get("maxToken"),
+            "maxCompletionToken": model.get("maxCompletionToken"),
             "minTemperature": model.get("minTemperature"),
             "maxTemperature": model.get("maxTemperature"),
             "cost": model.get("cost"),
