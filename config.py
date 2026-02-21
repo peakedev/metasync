@@ -19,6 +19,11 @@ def _model_name_to_attr_name(name: str) -> str:
     return f"{attr_name}_key"
 
 
+def _key_to_env_var(key: str) -> str:
+    """Convert kebab-case key reference to UPPER_SNAKE_CASE env var name."""
+    return key.upper().replace("-", "_")
+
+
 class ConfigFactory:
     """
     Singleton configuration factory.
@@ -65,7 +70,7 @@ class ConfigFactory:
         
                 if name and key and service:
                     attr_name = _model_name_to_attr_name(name)
-                    env_var_name = attr_name.upper()
+                    env_var_name = _key_to_env_var(key)
                     try:
                         setattr(
                             self,
