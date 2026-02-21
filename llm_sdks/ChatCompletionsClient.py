@@ -115,10 +115,17 @@ class ChatCompletionsClientSDK(BaseLLMSDK):
             msg = "ChatCompletionsClient returned empty response content."
             raise RuntimeError(msg)
 
-        # Extract token counts
-        prompt_tokens = getattr(usage, "prompt_tokens", None)
-        completion_tokens = getattr(usage, "completion_tokens", None)
-        total_tokens = getattr(usage, "total_tokens", None)
+        # Extract token counts (guard against None usage)
+        if usage is not None:
+            prompt_tokens = getattr(usage, "prompt_tokens", 0)
+            completion_tokens = getattr(
+                usage, "completion_tokens", 0
+            )
+            total_tokens = getattr(usage, "total_tokens", 0)
+        else:
+            prompt_tokens = 0
+            completion_tokens = 0
+            total_tokens = 0
 
         return (
             response_text,
@@ -187,6 +194,9 @@ class ChatCompletionsClientSDK(BaseLLMSDK):
             temperature=temperature,
             **token_kwargs,
             stream=True,
+            model_extras={
+                "stream_options": {"include_usage": True}
+            },
         )
 
         # Stream the response chunks
