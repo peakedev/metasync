@@ -395,6 +395,8 @@ class StreamService:
                 total_output_tokens = 0
                 total_tokens = 0
                 total_duration = 0.0
+                total_llm_duration = 0.0
+                total_overhead_duration = 0.0
                 total_input_cost = 0.0
                 total_output_cost = 0.0
                 total_cost = 0.0
@@ -417,6 +419,12 @@ class StreamService:
                         total_tokens += metrics.get("totalTokens", 0)
                     if "duration" in metrics:
                         total_duration += metrics.get("duration", 0.0)
+                    if "llmDuration" in metrics:
+                        total_llm_duration += metrics.get("llmDuration", 0.0)
+                    if "overheadDuration" in metrics:
+                        total_overhead_duration += metrics.get(
+                            "overheadDuration", 0.0
+                        )
                     
                     # Collect cost data and currencies
                     if "currency" in metrics and metrics["currency"]:
@@ -437,7 +445,10 @@ class StreamService:
                     "inputTokens": total_input_tokens,
                     "outputTokens": total_output_tokens,
                     "totalTokens": total_tokens,
-                    "duration": round(total_duration, 2)
+                    "duration": round(total_duration, 2),
+                    "llmDuration": round(total_llm_duration, 2),
+                    "totalDuration": round(total_duration, 2),
+                    "overheadDuration": round(total_overhead_duration, 2)
                 }
                 
                 # Include cost data if:

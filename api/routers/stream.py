@@ -165,6 +165,7 @@ async def stream_completion(
     - Streams response chunks as they arrive from the LLM
     - Saves stream record to database with request/response data
     """
+    request_received_time = time.time()
     service = get_stream_service()
     
     try:
@@ -244,7 +245,7 @@ async def stream_completion(
     # Define the streaming generator
     async def generate_stream():
         """Generate streaming response chunks."""
-        start_time = time.time()
+        llm_start_time = time.time()
         full_response = []
         prompt_tokens = 0
         completion_tokens = 0
@@ -282,8 +283,8 @@ async def stream_completion(
                         )
                     break
             
-            # Calculate duration
-            duration = time.time() - start_time
+            llm_end_time = time.time()
+            llm_duration = llm_end_time - llm_start_time
             
             # Update stream record with response and metrics
             response_data = {
@@ -295,7 +296,7 @@ async def stream_completion(
                 "inputTokens": prompt_tokens,
                 "outputTokens": completion_tokens,
                 "totalTokens": total_tokens,
-                "duration": round(duration, 2)
+                "llmDuration": round(llm_duration, 2)
             }
             
             # Calculate cost if model has cost information
@@ -332,6 +333,14 @@ async def stream_completion(
             else:
                 logger.info(f"No cost information in model config for {request.model}")
             
+            request_end_time = time.time()
+            total_duration = request_end_time - request_received_time
+            overhead_duration = total_duration - llm_duration
+            
+            processing_metrics["duration"] = round(total_duration, 2)
+            processing_metrics["totalDuration"] = round(total_duration, 2)
+            processing_metrics["overheadDuration"] = round(overhead_duration, 2)
+            
             service.update_stream_record(
                 stream_id=stream_id,
                 response_data=response_data,
@@ -340,17 +349,24 @@ async def stream_completion(
             )
             
             logger.info(
-                f"Completed stream {stream_id} in {duration:.2f}s, "
+                f"Completed stream {stream_id} in {total_duration:.2f}s "
+                f"(LLM: {llm_duration:.2f}s, overhead: {overhead_duration:.2f}s), "
                 f"tokens: {total_tokens}"
             )
             
         except Exception as e:
             logger.error(f"Error during streaming for {stream_id}", error=str(e))
             
-            # Update stream record with error status
-            duration = time.time() - start_time
+            request_end_time = time.time()
+            llm_duration = request_end_time - llm_start_time
+            total_duration = request_end_time - request_received_time
+            overhead_duration = total_duration - llm_duration
+            
             processing_metrics = {
-                "duration": round(duration, 2),
+                "duration": round(total_duration, 2),
+                "llmDuration": round(llm_duration, 2),
+                "totalDuration": round(total_duration, 2),
+                "overheadDuration": round(overhead_duration, 2),
                 "error": str(e)
             }
             
