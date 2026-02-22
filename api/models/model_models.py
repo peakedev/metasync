@@ -42,7 +42,9 @@ class ModelCreateRequest(BaseModel):
     deployment: str = Field(..., description="Deployment name", min_length=1)
     service: Optional[str] = Field(None, description="Service name for local keyring lookup only (optional). Used to determine which keyring service to query when loading API keys from the local keychain. Not used for actual LLM API calls.", min_length=1)
     key: str = Field(..., description="API key identifier", min_length=1)
-    maxToken: int = Field(..., description="Maximum tokens", gt=0)
+    maxToken: Optional[int] = Field(
+        None, description="Maximum tokens", gt=0
+    )
     maxCompletionToken: Optional[int] = Field(
         None,
         description="Maximum completion tokens (use instead of maxToken for models requiring max_completion_tokens)",
@@ -70,6 +72,16 @@ class ModelCreateRequest(BaseModel):
         """Validate maxTemperature is >= minTemperature"""
         if self.maxTemperature < self.minTemperature:
             raise ValueError("maxTemperature must be >= minTemperature")
+        return self
+    
+    @model_validator(mode='after')
+    def validate_token_limits(self):
+        """Ensure at least one of maxToken or maxCompletionToken is provided"""
+        if self.maxToken is None and self.maxCompletionToken is None:
+            raise ValueError(
+                "At least one of maxToken or maxCompletionToken"
+                " must be provided"
+            )
         return self
 
 
@@ -123,7 +135,7 @@ class ModelResponse(BaseModel):
     apiVersion: str = Field(..., description="API version")
     deployment: str = Field(..., description="Deployment name")
     service: Optional[str] = Field(None, description="Service name for local keyring lookup only (optional). Used to determine which keyring service to query when loading API keys from the local keychain. Not used for actual LLM API calls.")
-    maxToken: int = Field(..., description="Maximum tokens")
+    maxToken: Optional[int] = Field(None, description="Maximum tokens")
     maxCompletionToken: Optional[int] = Field(
         None,
         description="Maximum completion tokens (for models requiring max_completion_tokens)"
@@ -180,7 +192,7 @@ class ModelCreateResponse(BaseModel):
     deployment: str = Field(..., description="Deployment name")
     service: Optional[str] = Field(None, description="Service name for local keyring lookup only (optional). Used to determine which keyring service to query when loading API keys from the local keychain. Not used for actual LLM API calls.")
     key: str = Field(..., description="API key identifier (only returned once during creation)")
-    maxToken: int = Field(..., description="Maximum tokens")
+    maxToken: Optional[int] = Field(None, description="Maximum tokens")
     maxCompletionToken: Optional[int] = Field(
         None,
         description="Maximum completion tokens (for models requiring max_completion_tokens)"
