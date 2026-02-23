@@ -4,6 +4,7 @@ Azure AI Inference SDK (ChatCompletionsClient)
 Implementation for Azure's AI Inference SDK using ChatCompletionsClient.
 """
 
+import threading
 from typing import Tuple, Dict, Any, Generator
 from azure.core.credentials import AzureKeyCredential
 from azure.ai.inference import ChatCompletionsClient
@@ -21,6 +22,10 @@ _transport = RequestsTransport(
 
 class ChatCompletionsClientSDK(BaseLLMSDK):
     """Azure AI Inference SDK implementation using ChatCompletionsClient."""
+
+    # Reuse HTTP clients to avoid per-request TCP/TLS overhead
+    _clients: Dict[tuple, ChatCompletionsClient] = {}
+    _lock = threading.Lock()
 
     def get_name(self) -> str:
         """Return the SDK name as stored in the database."""
@@ -55,16 +60,28 @@ class ChatCompletionsClientSDK(BaseLLMSDK):
         api_version: str
     ) -> ChatCompletionsClient:
         """
-        Create a ChatCompletionsClient with pass-through header
-        so model_extras are forwarded to the backend.
+        Get or create a cached ChatCompletionsClient with
+        pass-through header so model_extras are forwarded
+        to the backend.
         """
-        return ChatCompletionsClient(
-            endpoint=endpoint,
-            credential=AzureKeyCredential(api_key),
-            api_version=api_version,
-            transport=_transport,
-            headers={"extra-parameters": "pass-through"},
-        )
+        key = (endpoint, api_key, api_version)
+        client = self._clients.get(key)
+        if client is not None:
+            return client
+        with self._lock:
+            client = self._clients.get(key)
+            if client is None:
+                client = ChatCompletionsClient(
+                    endpoint=endpoint,
+                    credential=AzureKeyCredential(api_key),
+                    api_version=api_version,
+                    transport=_transport,
+                    headers={
+                        "extra-parameters": "pass-through"
+                    },
+                )
+                self._clients[key] = client
+            return client
 
     def complete(
         self,

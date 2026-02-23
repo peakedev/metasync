@@ -40,16 +40,16 @@ class StreamService:
     def validate_additional_prompts(self, prompt_ids: List[str]) -> None:
         """
         Validate that all provided prompt IDs exist in the prompts collection.
-        
+
         Args:
             prompt_ids: List of prompt IDs to validate
-            
+
         Raises:
             ValueError: If any prompt ID does not exist
         """
         if not prompt_ids:
             return
-        
+
         # Check each prompt exists
         for prompt_id in prompt_ids:
             try:
@@ -64,6 +64,53 @@ class StreamService:
             except Exception as e:
                 logger.error(f"Error validating prompt {prompt_id}", error=str(e))
                 raise ValueError(f"Prompt with ID '{prompt_id}' not found")
+
+    def validate_and_fetch_prompts(
+        self, prompt_ids: List[str]
+    ) -> str:
+        """
+        Validate prompt IDs and return concatenated content in
+        a single DB pass — avoids the duplicate queries that
+        happen when validate and fetch are separate steps.
+
+        Args:
+            prompt_ids: List of prompt IDs to validate and fetch
+
+        Returns:
+            Concatenated prompt content string
+
+        Raises:
+            ValueError: If any prompt ID does not exist
+        """
+        if not prompt_ids:
+            return ""
+
+        parts = []
+        for prompt_id in prompt_ids:
+            try:
+                prompt = get_document_by_id(
+                    self.mongo_client,
+                    self.db_name,
+                    "prompts",
+                    prompt_id
+                )
+                if not prompt:
+                    raise ValueError(
+                        f"Prompt with ID '{prompt_id}' not found"
+                    )
+                if prompt.get("content"):
+                    parts.append(prompt["content"])
+            except ValueError:
+                raise
+            except Exception as e:
+                logger.error(
+                    f"Error fetching prompt {prompt_id}",
+                    error=str(e)
+                )
+                raise ValueError(
+                    f"Prompt with ID '{prompt_id}' not found"
+                )
+        return "\n".join(parts)
     
     def validate_model(self, model_name: str) -> Dict[str, Any]:
         """
@@ -97,17 +144,21 @@ class StreamService:
         client_id: str,
         model: str,
         temperature: float,
-        request_data: Dict[str, Any]
+        request_data: Dict[str, Any],
+        stream_id: Optional[str] = None
     ) -> str:
         """
         Create a new stream record in the database.
-        
+
         Args:
             client_id: ID of the client making the request
             model: Model name
             temperature: Temperature parameter
             request_data: Request data including prompts
-            
+            stream_id: Optional pre-generated ID to use as
+                the document _id (allows callers to know the
+                ID before the write completes)
+
         Returns:
             Stream ID (MongoDB document ID)
         """
@@ -117,7 +168,7 @@ class StreamService:
             client_id=client_id,
             model=model
         )
-        
+
         stream_data = {
             "clientId": client_id,
             "model": model,
@@ -132,29 +183,37 @@ class StreamService:
                 "isDeleted": False
             }
         }
-        
+
+        # If a pre-generated stream_id was provided, use it
+        # as the MongoDB document _id so callers can reference
+        # the record before the write completes.
+        if stream_id:
+            stream_data["_id"] = ObjectId(stream_id)
+
         db_id = db_create(
             self.mongo_client,
             self.db_name,
             self.collection_name,
             stream_data
         )
-        
+
         if not db_id:
             business_logger.log_error(
                 "stream_service",
                 "create_stream_record",
                 "Failed to create stream record in database"
             )
-            raise RuntimeError("Failed to create stream record in database")
-        
+            raise RuntimeError(
+                "Failed to create stream record in database"
+            )
+
         logger.info(
-            "Stream record created successfully",
+            "Stream record created",
             stream_id=db_id,
             client_id=client_id,
             model=model
         )
-        
+
         return db_id
     
     def update_stream_record(
