@@ -5,6 +5,7 @@ Implementation for Anthropic's Claude API using the official Anthropic
 Python SDK.
 """
 
+import threading
 from typing import Tuple, Dict, Any, Generator
 from anthropic import Anthropic
 from urllib.parse import urlparse
@@ -14,6 +15,25 @@ from llm_sdks.base_sdk import BaseLLMSDK
 
 class AnthropicSDK(BaseLLMSDK):
     """Anthropic Claude SDK with streaming support."""
+
+    # Reuse HTTP clients to avoid per-request TCP/TLS overhead
+    _clients: Dict[tuple, Anthropic] = {}
+    _lock = threading.Lock()
+
+    def _get_client(self, api_key: str, base_url: str) -> Anthropic:
+        """Get or create a cached Anthropic client."""
+        key = (base_url, api_key)
+        client = self._clients.get(key)
+        if client is not None:
+            return client
+        with self._lock:
+            client = self._clients.get(key)
+            if client is None:
+                client = Anthropic(
+                    api_key=api_key, base_url=base_url
+                )
+                self._clients[key] = client
+            return client
 
     def get_name(self) -> str:
         """Return the SDK name as stored in the database."""
@@ -87,8 +107,8 @@ class AnthropicSDK(BaseLLMSDK):
         endpoint = config.get('endpoint')
         deployment = config.get('deployment')
 
-        # Create client
-        client = Anthropic(api_key=api_key, base_url=endpoint)
+        # Get cached client (reuses TCP/TLS connections)
+        client = self._get_client(api_key, endpoint)
 
         # Anthropic separates system and messages
         # Keep system in system_prompt and send user content as a user message
@@ -170,8 +190,8 @@ class AnthropicSDK(BaseLLMSDK):
         endpoint = config.get('endpoint')
         deployment = config.get('deployment')
 
-        # Create client
-        client = Anthropic(api_key=api_key, base_url=endpoint)
+        # Get cached client (reuses TCP/TLS connections)
+        client = self._get_client(api_key, endpoint)
 
         # Anthropic separates system and messages
         # Keep system in system_prompt and send user content as a user message

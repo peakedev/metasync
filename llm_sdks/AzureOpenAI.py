@@ -4,6 +4,7 @@ Azure OpenAI SDK
 Implementation for Azure OpenAI API using the official OpenAI Python SDK.
 """
 
+import threading
 from typing import Tuple, Dict, Any, Generator
 from openai import AzureOpenAI
 
@@ -12,6 +13,30 @@ from llm_sdks.base_sdk import BaseLLMSDK
 
 class AzureOpenAISDK(BaseLLMSDK):
     """Azure OpenAI SDK implementation."""
+
+    # Reuse HTTP clients to avoid per-request TCP/TLS overhead
+    _clients: Dict[tuple, AzureOpenAI] = {}
+    _lock = threading.Lock()
+
+    def _get_client(
+        self, api_version: str, azure_endpoint: str,
+        api_key: str
+    ) -> AzureOpenAI:
+        """Get or create a cached AzureOpenAI client."""
+        key = (azure_endpoint, api_version, api_key)
+        client = self._clients.get(key)
+        if client is not None:
+            return client
+        with self._lock:
+            client = self._clients.get(key)
+            if client is None:
+                client = AzureOpenAI(
+                    api_version=api_version,
+                    azure_endpoint=azure_endpoint,
+                    api_key=api_key,
+                )
+                self._clients[key] = client
+            return client
 
     def get_name(self) -> str:
         """Return the SDK name as stored in the database."""
@@ -75,12 +100,8 @@ class AzureOpenAISDK(BaseLLMSDK):
         content = (system_prompt or "") + (user_content or "")
         messages = [{"role": "system", "content": content}]
 
-        # Create client
-        client = AzureOpenAI(
-            api_version=api_version,
-            azure_endpoint=endpoint,
-            api_key=api_key,
-        )
+        # Get cached client (reuses TCP/TLS connections)
+        client = self._get_client(api_version, endpoint, api_key)
 
         # Make the API call
         response = client.chat.completions.create(
@@ -148,12 +169,8 @@ class AzureOpenAISDK(BaseLLMSDK):
         content = (system_prompt or "") + (user_content or "")
         messages = [{"role": "system", "content": content}]
 
-        # Create client
-        client = AzureOpenAI(
-            api_version=api_version,
-            azure_endpoint=endpoint,
-            api_key=api_key,
-        )
+        # Get cached client (reuses TCP/TLS connections)
+        client = self._get_client(api_version, endpoint, api_key)
 
         # Make the streaming API call
         # IMPORTANT: stream_options={"include_usage": True} is required to get token counts

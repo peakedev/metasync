@@ -5,6 +5,7 @@ This SDK provides an interface to Google's Gemini models (e.g., Gemini 2.0 Flash
 via the Unified Google Gen AI library, supporting text generation and token tracking.
 """
 
+import threading
 from typing import Generator, Tuple, Dict, Any
 from google import genai
 from google.genai import types
@@ -13,7 +14,23 @@ from llm_sdks.base_sdk import BaseLLMSDK
 
 class GeminiSDK(BaseLLMSDK):
     """Gemini SDK implementation using the google-genai library."""
-    
+
+    # Reuse HTTP clients to avoid per-request TCP/TLS overhead
+    _clients: dict = {}
+    _lock = threading.Lock()
+
+    def _get_client(self, api_key: str):
+        """Get or create a cached Gemini client."""
+        client = self._clients.get(api_key)
+        if client is not None:
+            return client
+        with self._lock:
+            client = self._clients.get(api_key)
+            if client is None:
+                client = genai.Client(api_key=api_key)
+                self._clients[api_key] = client
+            return client
+
     def get_name(self) -> str:
         """
         Return the SDK name as stored in the database.
@@ -53,10 +70,8 @@ class GeminiSDK(BaseLLMSDK):
         # 2. Extract configuration values
         model_id = config.get('name')
         
-        # 3. Initialize the SDK client
-        # If api_key is provided, it uses the Developer API. 
-        # For Vertex AI, initialization usually relies on environment variables or ADC.
-        client = genai.Client(api_key=api_key)
+        # 3. Get cached client (reuses TCP/TLS connections)
+        client = self._get_client(api_key)
         
         # 4. Prepare messages and config
         # Google Gemini separates System Instruction from Content
@@ -115,8 +130,8 @@ class GeminiSDK(BaseLLMSDK):
         self.validate_config(config)
         model_id = config.get('name')
 
-        # 2. Initialize client
-        client = genai.Client(api_key=api_key)
+        # 2. Get cached client (reuses TCP/TLS connections)
+        client = self._get_client(api_key)
 
         # 3. Prepare generation config
         gen_config = types.GenerateContentConfig(
