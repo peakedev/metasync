@@ -50,7 +50,6 @@ class StreamService:
         if not prompt_ids:
             return
 
-        # Check each prompt exists
         for prompt_id in prompt_ids:
             try:
                 prompt = get_document_by_id(

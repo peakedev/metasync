@@ -204,14 +204,12 @@ async def stream_completion(
             min_temperature
         )
 
-        # Validate and fetch prompt contents in a single DB
-        # pass (replaces the old validate-then-fetch pattern
-        # that issued 2N queries instead of N).
         system_prompt = ""
         if request.additionalPrompts:
             system_prompt = service.validate_and_fetch_prompts(
                 request.additionalPrompts
             )
+
 
         # Get API key for the model
         if sdk_name != "test":
@@ -227,6 +225,7 @@ async def stream_completion(
         sdk_impl = SDKRegistry.get_sdk(sdk_name)
         if sdk_impl is None:
             raise ValueError(f"Unsupported SDK type: {sdk_name}")
+
 
     except ValueError as e:
         logger.warning(
