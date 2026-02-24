@@ -176,7 +176,15 @@ async def get_streams_summary(
     client_id: Optional[str] = Depends(optional_client_auth),
     admin_api_key: Optional[str] = Depends(optional_admin_auth),
     model: Optional[str] = Query(None, description="Filter by model"),
-    status: Optional[str] = Query(None, description="Filter by status (streaming, completed, error)")
+    status: Optional[str] = Query(None, description="Filter by status (streaming, completed, error)"),
+    date_from: Optional[str] = Query(
+        None, alias="from",
+        description="ISO datetime lower bound on createdAt"
+    ),
+    date_to: Optional[str] = Query(
+        None, alias="to",
+        description="ISO datetime upper bound on createdAt"
+    )
 ):
     """
     Get summary of streams with counts by status.
@@ -187,6 +195,7 @@ async def get_streams_summary(
     - Supports filtering by model, status, and any clientReference field
     - For clientReference filtering, use query parameters like:
       clientReference.runId=123
+    - Supports date range filtering with from/to ISO datetime query parameters
     - Clients can only see their own streams
     - Admin can see all streams
     """
@@ -215,6 +224,8 @@ async def get_streams_summary(
             model=model,
             status=status,
             client_reference_filters=client_reference_filters,
+            date_from=date_from,
+            date_to=date_to,
             is_admin=is_admin
         )
 
@@ -238,12 +249,12 @@ async def get_streams_summary(
 async def get_stream_analytics(
     client_id: Optional[str] = Depends(optional_client_auth),
     admin_api_key: Optional[str] = Depends(optional_admin_auth),
-    dateFrom: Optional[str] = Query(
-        None,
+    date_from: Optional[str] = Query(
+        None, alias="from",
         description="ISO datetime lower bound on createdAt"
     ),
-    dateTo: Optional[str] = Query(
-        None,
+    date_to: Optional[str] = Query(
+        None, alias="to",
         description="ISO datetime upper bound on createdAt"
     )
 ):
@@ -254,7 +265,7 @@ async def get_stream_analytics(
     - Returns individual data points (one per completed
       stream) with tokens, costs, and duration
     - Groups data by model, clientReference, and promptIds
-    - Supports date range filtering via dateFrom / dateTo
+    - Supports date range filtering via from / to
     - Only completed streams are included
     - Admin can see all streams
     """
@@ -266,14 +277,14 @@ async def get_stream_analytics(
         )
 
     try:
-        if dateFrom:
-            datetime.fromisoformat(dateFrom)
-        if dateTo:
-            datetime.fromisoformat(dateTo)
+        if date_from:
+            datetime.fromisoformat(date_from)
+        if date_to:
+            datetime.fromisoformat(date_to)
     except ValueError:
         raise HTTPException(
             status_code=http_status.HTTP_400_BAD_REQUEST,
-            detail="dateFrom and dateTo must be valid "
+            detail="from and to must be valid "
             "ISO datetime strings"
         )
 
@@ -281,8 +292,8 @@ async def get_stream_analytics(
         service = get_stream_service()
         result = service.get_stream_analytics(
             client_id=client_id,
-            date_from=dateFrom,
-            date_to=dateTo,
+            date_from=date_from,
+            date_to=date_to,
             is_admin=is_admin
         )
         return StreamAnalyticsResponse(
