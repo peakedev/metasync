@@ -581,18 +581,22 @@ class JobService:
         
         return self._format_job_response(job)
     
-    def update_job_status(self, job_id: str, new_status: JobStatus, client_id: str) -> Dict[str, Any]:
+    def update_job_status(self, job_id: str, new_status: JobStatus, client_id: Optional[str] = None, is_admin: bool = False) -> Dict[str, Any]:
         """
-        Update job status with transition validation (for clients).
-        
+        Update job status with transition validation.
+
+        Supports both client and admin access. Admins can perform
+        additional status transitions that clients cannot.
+
         Args:
             job_id: Job document ID
             new_status: New status
-            client_id: Client ID (must own the job)
-            
+            client_id: Client ID (required for non-admin users)
+            is_admin: Whether the caller is an admin
+
         Returns:
             Updated job dictionary
-            
+
         Raises:
             ValueError: If job not found, access denied, or invalid transition
         """
@@ -610,9 +614,9 @@ class JobService:
             raise ValueError(f"Job not found: {job_id}")
         
         # Check access
-        if not self._check_job_access(job, client_id, is_admin=False):
+        if not self._check_job_access(job, client_id, is_admin=is_admin):
             raise ValueError("Access denied: job not found or insufficient permissions")
-        
+
         # Get current status
         current_status_str = job.get("status")
         try:
@@ -620,9 +624,9 @@ class JobService:
         except ValueError:
             logger.error("Invalid current status", job_id=job_id, status=current_status_str)
             raise ValueError(f"Invalid current job status: {current_status_str}")
-        
-        # Validate transition (clients only, so is_admin=False)
-        if not self._validate_status_transition(current_status, new_status, is_admin=False):
+
+        # Validate transition
+        if not self._validate_status_transition(current_status, new_status, is_admin=is_admin):
             raise ValueError(f"Invalid status transition from {current_status.value} to {new_status.value}")
         
         # Update status
@@ -641,8 +645,8 @@ class JobService:
         logger.info("Job status updated successfully", job_id=job_id, old_status=current_status.value, new_status=new_status.value)
         
         # Return updated job
-        return self.get_job_by_id(job_id, client_id)
-    
+        return self.get_job_by_id(job_id, client_id, is_admin=is_admin)
+
     def update_job(self, job_id: str, status: Optional[JobStatus] = None,
                    operation: Optional[str] = None, prompts: Optional[List[str]] = None,
                    working_prompts: Optional[List[str]] = None,
@@ -1110,30 +1114,40 @@ class JobService:
     
     def get_jobs_summary(
         self,
-        client_id: str,
+        client_id: Optional[str] = None,
         operation: Optional[str] = None,
         model: Optional[str] = None,
         job_id: Optional[str] = None,
-        client_reference_filters: Optional[Dict[str, Any]] = None
+        client_reference_filters: Optional[Dict[str, Any]] = None,
+        is_admin: bool = False
     ) -> Dict[str, Any]:
         """
         Get summary of jobs with counts by status, with optional filtering.
-        
+
+        Supports both client and admin access. Admins can see jobs
+        across all clients.
+
         Args:
-            client_id: Client ID (required, clients can only see their own jobs)
+            client_id: Client ID (required for non-admin users)
             operation: Optional filter by operation
             model: Optional filter by model
             job_id: Optional filter by client-provided job ID
             client_reference_filters: Optional dict of filters for clientReference fields
                 e.g., {"randomProp": "hello"} will filter where clientReference.randomProp == "hello"
-            
+            is_admin: Whether the caller is an admin
+
         Returns:
             Dictionary with counts by status, total count, and aggregated processingMetrics
         """
-        business_logger.log_operation("job_service", "get_jobs_summary", client_id=client_id)
+        business_logger.log_operation("job_service", "get_jobs_summary", client_id=client_id, is_admin=is_admin)
         
-        # Build query - clients can only see their own jobs
-        query = {"clientId": client_id}
+        # Build query
+        if is_admin:
+            query = {}
+        else:
+            if not client_id:
+                raise ValueError("Client ID is required for non-admin users")
+            query = {"clientId": client_id}
         
         # Add filters
         if operation:

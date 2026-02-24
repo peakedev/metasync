@@ -246,17 +246,17 @@ async def update_prompt_flow(
         # First, get the flow to check if it's public or private
         existing_flow = service.get_prompt_flow_by_id(flow_id, client_id, is_admin)
         
-        # Check access: public flows require admin, private flows require owner
+        # Check access: public flows require admin, private flows
+        # require owner. Admins can update any flow.
         if existing_flow.get("isPublic", False):
-            if admin_api_key is None:
+            if not is_admin:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail=(
-                        "Admin API key is required to update public prompt "
-                        "flows"
+                        "Admin API key is required to update "
+                        "public prompt flows"
                     )
                 )
-            # For public flows, pass None as client_id
             updated_flow = service.update_prompt_flow(
                 flow_id=flow_id,
                 client_id=None,
@@ -266,13 +266,13 @@ async def update_prompt_flow(
                 is_admin=True
             )
         else:
-            # For private flows, client_id is required
-            if client_id is None:
+            # For private flows, require client auth or admin
+            if not is_admin and client_id is None:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail=(
-                        "Client authentication is required to update private "
-                        "prompt flows"
+                        "Client authentication is required to "
+                        "update private prompt flows"
                     )
                 )
             updated_flow = service.update_prompt_flow(
@@ -281,7 +281,7 @@ async def update_prompt_flow(
                 name=request.name,
                 prompt_ids=request.promptIds,
                 is_public=request.isPublic,
-                is_admin=False
+                is_admin=is_admin
             )
         
         return PromptFlowResponse(**updated_flow)
@@ -326,29 +326,32 @@ async def delete_prompt_flow(
         # First, get the flow to check if it's public or private
         existing_flow = service.get_prompt_flow_by_id(flow_id, client_id, is_admin)
         
-        # Check access: public flows require admin, private flows require owner
-        if existing_flow.get("isPublic", False):
-            if admin_api_key is None:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail=(
-                        "Admin API key is required to delete public prompt "
-                        "flows"
-                    )
+        # Check access: admins can delete any flow, public flows
+        # require admin, private flows require owner
+        if is_admin:
+            service.delete_prompt_flow(
+                flow_id, client_id=None, is_admin=True
+            )
+        elif existing_flow.get("isPublic", False):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    "Admin API key is required to delete "
+                    "public prompt flows"
                 )
-            # For public flows, pass None as client_id
-            service.delete_prompt_flow(flow_id, client_id=None, is_admin=True)
+            )
         else:
-            # For private flows, client_id is required
             if client_id is None:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail=(
-                        "Client authentication is required to delete private "
-                        "prompt flows"
+                        "Client authentication is required to "
+                        "delete private prompt flows"
                     )
                 )
-            service.delete_prompt_flow(flow_id, client_id=client_id, is_admin=False)
+            service.delete_prompt_flow(
+                flow_id, client_id=client_id
+            )
         
         return None
     except HTTPException:

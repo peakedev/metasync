@@ -266,7 +266,7 @@ class StreamService:
             status=status
         )
     
-    def get_stream_by_id(self, stream_id: str, client_id: str) -> Dict[str, Any]:
+    def get_stream_by_id(self, stream_id: str, client_id: Optional[str] = None, is_admin: bool = False) -> Dict[str, Any]:
         """
         Get a stream by its ID.
         
@@ -297,9 +297,10 @@ class StreamService:
         if not stream:
             raise ValueError(f"Stream with ID '{stream_id}' not found")
         
-        # Check if client owns this stream
-        if stream.get("clientId") != client_id:
-            raise ValueError(f"Access denied to stream '{stream_id}'")
+        # Check access: admins can access any stream
+        if not is_admin:
+            if not client_id or stream.get("clientId") != client_id:
+                raise ValueError(f"Access denied to stream '{stream_id}'")
         
         logger.info(
             "Stream retrieved successfully",
@@ -311,11 +312,12 @@ class StreamService:
     
     def list_streams(
         self,
-        client_id: str,
+        client_id: Optional[str] = None,
         model: Optional[str] = None,
         status: Optional[str] = None,
         limit: Optional[int] = None,
-        client_reference_filters: Optional[Dict[str, Any]] = None
+        client_reference_filters: Optional[Dict[str, Any]] = None,
+        is_admin: bool = False
     ) -> List[Dict[str, Any]]:
         """
         List streams with optional filters.
@@ -338,13 +340,18 @@ class StreamService:
             client_id=client_id
         )
         
-        # Build query - clients can only see their own streams
-        query = {"clientId": client_id}
-        
+        # Build query
+        if is_admin:
+            query = {}
+        else:
+            if not client_id:
+                raise ValueError("Client ID is required for non-admin users")
+            query = {"clientId": client_id}
+
         # Add filters
         if model is not None:
             query["model"] = model
-        
+
         if status is not None:
             query["status"] = status
         
@@ -363,16 +370,17 @@ class StreamService:
         
         result = []
         for stream in streams:
-            # Additional defensive check: ensure client only sees their own streams
-            stream_client_id = stream.get("clientId")
-            if stream_client_id != client_id:
-                logger.warning(
-                    "Stream returned with incorrect clientId, filtering out",
-                    stream_id=str(stream.get("_id")),
-                    expected_client_id=client_id,
-                    actual_client_id=stream_client_id
-                )
-                continue
+            # Additional defensive check: ensure non-admin client only sees their own streams
+            if not is_admin:
+                stream_client_id = stream.get("clientId")
+                if stream_client_id != client_id:
+                    logger.warning(
+                        "Stream returned with incorrect clientId, filtering out",
+                        stream_id=str(stream.get("_id")),
+                        expected_client_id=client_id,
+                        actual_client_id=stream_client_id
+                    )
+                    continue
             
             result.append(self._format_stream_response(stream))
         
@@ -381,10 +389,11 @@ class StreamService:
     
     def get_streams_summary(
         self,
-        client_id: str,
+        client_id: Optional[str] = None,
         model: Optional[str] = None,
         status: Optional[str] = None,
-        client_reference_filters: Optional[Dict[str, Any]] = None
+        client_reference_filters: Optional[Dict[str, Any]] = None,
+        is_admin: bool = False
     ) -> Dict[str, Any]:
         """
         Get summary of streams with counts by status, with optional filtering.
@@ -406,13 +415,18 @@ class StreamService:
             client_id=client_id
         )
         
-        # Build query - clients can only see their own streams
-        query = {"clientId": client_id}
-        
+        # Build query
+        if is_admin:
+            query = {}
+        else:
+            if not client_id:
+                raise ValueError("Client ID is required for non-admin users")
+            query = {"clientId": client_id}
+
         # Add filters
         if model:
             query["model"] = model
-        
+
         if status:
             query["status"] = status
         
@@ -571,9 +585,10 @@ class StreamService:
     
     def get_stream_analytics(
         self,
-        client_id: str,
+        client_id: Optional[str] = None,
         date_from: Optional[str] = None,
-        date_to: Optional[str] = None
+        date_to: Optional[str] = None,
+        is_admin: bool = False
     ) -> Dict[str, Any]:
         """
         Return per-stream processing metrics with grouping
@@ -603,11 +618,14 @@ class StreamService:
         )
 
         query: Dict[str, Any] = {
-            "clientId": client_id,
             "status": "completed",
             "processingMetrics": {"$exists": True, "$ne": None},
             "_metadata.isDeleted": {"$ne": True},
         }
+        if not is_admin:
+            if not client_id:
+                raise ValueError("Client ID is required for non-admin users")
+            query["clientId"] = client_id
 
         if date_from or date_to:
             created_filter: Dict[str, Any] = {}

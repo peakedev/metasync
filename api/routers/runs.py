@@ -62,20 +62,40 @@ def optional_admin_auth(
 @router.post("", response_model=RunResponse, status_code=http_status.HTTP_201_CREATED)
 async def create_run(
     request: RunCreateRequest,
-    client_id: str = Depends(verify_client_auth)
+    client_id: Optional[str] = Depends(optional_client_auth),
+    admin_api_key: Optional[str] = Depends(optional_admin_auth),
+    raw_client_id: Annotated[
+        Optional[str], Header(alias="client_id")
+    ] = None
 ):
     """
     Create a new optimization run.
-    
-    - Requires client authentication (client_id and client_api_key headers)
+
+    - Requires client authentication OR admin API key
+    - Admin must provide client_id header to specify the owning client
     - Validates all prompt IDs and model names exist
     - Creates the run and seeds the first job
     - Run starts in PENDING status and transitions to RUNNING
     """
+    is_admin = admin_api_key is not None
+    effective_client_id = client_id if client_id else raw_client_id
+    if not is_admin and client_id is None:
+        raise HTTPException(
+            status_code=http_status.HTTP_401_UNAUTHORIZED,
+            detail="Client authentication or admin API key is required"
+        )
+    if is_admin and not effective_client_id:
+        raise HTTPException(
+            status_code=http_status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "client_id header is required when creating"
+                " runs as admin"
+            )
+        )
     try:
         service = get_run_service()
         run = service.create_run(
-            client_id=client_id,
+            client_id=effective_client_id,
             initial_working_prompt_ids=request.initialWorkingPromptIds,
             eval_prompt_id=request.evalPromptId,
             eval_model=request.evalModel,
@@ -87,7 +107,7 @@ async def create_run(
             priority=request.priority,
             request_data=request.requestData
         )
-        
+
         return RunResponse(**run)
     except ValueError as e:
         logger.warning("Validation error creating run", error=str(e))

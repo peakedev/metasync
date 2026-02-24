@@ -69,21 +69,43 @@ def optional_admin_auth(
 @router.post("", response_model=JobResponse, status_code=http_status.HTTP_201_CREATED)
 async def create_job(
     request: JobCreateRequest,
-    client_id: str = Depends(verify_client_auth)
+    client_id: Optional[str] = Depends(optional_client_auth),
+    admin_api_key: Optional[str] = Depends(optional_admin_auth),
+    raw_client_id: Annotated[
+        Optional[str], Header(alias="client_id")
+    ] = None
 ):
     """
     Create a new job.
-    
+
     - Requires client authentication (client_id and client_api_key
-      headers)
+      headers) or admin API key
+    - Admin must provide a client_id header to create jobs on behalf
+      of a client
     - Validates that all prompt IDs exist in the prompts collection
     - Validates that the model exists in the models collection
     - Returns the created job data
     """
+    is_admin = admin_api_key is not None
+    effective_client_id = client_id if client_id else raw_client_id
+
+    if not is_admin and client_id is None:
+        raise HTTPException(
+            status_code=http_status.HTTP_401_UNAUTHORIZED,
+            detail="Client authentication or admin API key is required"
+        )
+
+    if is_admin and not effective_client_id:
+        raise HTTPException(
+            status_code=http_status.HTTP_400_BAD_REQUEST,
+            detail="client_id header is required when creating "
+                   "jobs as admin"
+        )
+
     try:
         service = get_job_service()
         job = service.create_job(
-            client_id=client_id,
+            client_id=effective_client_id,
             operation=request.operation,
             prompts=request.prompts,
             working_prompts=request.workingPrompts,
@@ -121,13 +143,19 @@ async def create_job(
 )
 async def create_jobs_batch(
     request: JobBatchCreateRequest,
-    client_id: str = Depends(verify_client_auth)
+    client_id: Optional[str] = Depends(optional_client_auth),
+    admin_api_key: Optional[str] = Depends(optional_admin_auth),
+    raw_client_id: Annotated[
+        Optional[str], Header(alias="client_id")
+    ] = None
 ):
     """
     Create multiple jobs at once.
-    
+
     - Requires client authentication (client_id and client_api_key
-      headers)
+      headers) or admin API key
+    - Admin must provide a client_id header to create jobs on behalf
+      of a client
     - Validates that all prompt IDs exist in the prompts collection
       for each job
     - Validates that all models exist in the models collection for
@@ -136,10 +164,26 @@ async def create_jobs_batch(
     - If any job fails validation, the entire batch fails
       (all-or-nothing)
     """
+    is_admin = admin_api_key is not None
+    effective_client_id = client_id if client_id else raw_client_id
+
+    if not is_admin and client_id is None:
+        raise HTTPException(
+            status_code=http_status.HTTP_401_UNAUTHORIZED,
+            detail="Client authentication or admin API key is required"
+        )
+
+    if is_admin and not effective_client_id:
+        raise HTTPException(
+            status_code=http_status.HTTP_400_BAD_REQUEST,
+            detail="client_id header is required when creating "
+                   "jobs as admin"
+        )
+
     try:
         service = get_job_service()
         jobs = service.create_jobs_batch(
-            client_id=client_id,
+            client_id=effective_client_id,
             job_requests=request.jobs
         )
         
@@ -247,7 +291,8 @@ async def list_jobs(
 @router.get("/summary", response_model=JobSummaryResponse)
 async def get_jobs_summary(
     request: Request,
-    client_id: str = Depends(verify_client_auth),
+    client_id: Optional[str] = Depends(optional_client_auth),
+    admin_api_key: Optional[str] = Depends(optional_admin_auth),
     operation: Optional[str] = Query(
         None, description="Filter by operation"
     ),
@@ -258,9 +303,10 @@ async def get_jobs_summary(
 ):
     """
     Get summary of jobs with counts by status.
-    
+
     - Requires client authentication (client_id and client_api_key
-      headers)
+      headers) or admin API key
+    - Admin sees summary of all jobs
     - Returns counts for each status (PENDING, PROCESSING, PROCESSED,
       CONSUMED, ERROR_PROCESSING, ERROR_CONSUMING, CANCELED)
     - Supports filtering by operation, model, id, and any
@@ -269,6 +315,14 @@ async def get_jobs_summary(
       clientReference.randomProp=hello
     - Clients can only see their own jobs
     """
+    is_admin = admin_api_key is not None
+
+    if not is_admin and client_id is None:
+        raise HTTPException(
+            status_code=http_status.HTTP_401_UNAUTHORIZED,
+            detail="Client authentication or admin API key is required"
+        )
+
     try:
         service = get_job_service()
         
@@ -299,6 +353,7 @@ async def get_jobs_summary(
         
         summary = service.get_jobs_summary(
             client_id=client_id,
+            is_admin=is_admin,
             operation=operation,
             model=model,
             job_id=id,
@@ -427,27 +482,38 @@ async def get_job(
 async def update_job_status(
     job_id: str,
     request: JobStatusUpdateRequest,
-    client_id: str = Depends(verify_client_auth)
+    client_id: Optional[str] = Depends(optional_client_auth),
+    admin_api_key: Optional[str] = Depends(optional_admin_auth)
 ):
     """
-    Update job status (clients only).
-    
+    Update job status.
+
     - Clients can only update status field
-    - Allowed transitions: PENDING→CANCELED, PROCESSED→CONSUMED,
-      PROCESSED→ERROR_CONSUMING
+    - Admin can update any job's status
+    - Allowed transitions: PENDING->CANCELED, PROCESSED->CONSUMED,
+      PROCESSED->ERROR_CONSUMING
     - Invalid transitions return 400 Bad Request
     - Clients can only update their own jobs
     """
+    is_admin = admin_api_key is not None
+
+    if not is_admin and client_id is None:
+        raise HTTPException(
+            status_code=http_status.HTTP_401_UNAUTHORIZED,
+            detail="Client authentication or admin API key is required"
+        )
+
     try:
         service = get_job_service()
-        
+
         # Convert string to JobStatus enum
         new_status = JobStatus(request.status)
-        
+
         job = service.update_job_status(
             job_id=job_id,
             new_status=new_status,
-            client_id=client_id
+            client_id=client_id,
+            is_admin=is_admin
         )
         
         return JobResponse(**job)

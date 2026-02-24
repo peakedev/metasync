@@ -7,12 +7,13 @@ import asyncio
 import threading
 from datetime import datetime
 from bson import ObjectId
-from fastapi import APIRouter, HTTPException, Depends, Query, Request
+from fastapi import APIRouter, HTTPException, Depends, Query, Request, Header
 from fastapi import status as http_status
 from fastapi.responses import StreamingResponse
 from typing import Annotated, Optional, List, Dict, Any
 
 from api.middleware.client_auth import verify_client_auth
+from api.middleware.auth import verify_admin_api_key
 from api.models.stream_models import (
     StreamCreateRequest,
     StreamResponse,
@@ -29,6 +30,36 @@ from llm_sdks.registry import SDKRegistry
 logger = get_logger("api.routers.stream")
 
 router = APIRouter()
+
+
+def optional_client_auth(
+    client_id: Annotated[Optional[str], Header(alias="client_id")] = None,
+    client_api_key: Annotated[
+        Optional[str], Header(alias="client_api_key")
+    ] = None
+) -> Optional[str]:
+    """Optional client authentication. Returns client_id if valid, None otherwise."""
+    if client_id is None or client_api_key is None:
+        return None
+    try:
+        return verify_client_auth(client_id, client_api_key)
+    except Exception:
+        return None
+
+
+def optional_admin_auth(
+    admin_api_key: Annotated[
+        Optional[str], Header(alias="admin_api_key")
+    ] = None
+) -> Optional[str]:
+    """Optional admin authentication. Returns admin_api_key if valid, None otherwise."""
+    if admin_api_key is None:
+        return None
+    try:
+        return verify_admin_api_key(admin_api_key)
+    except Exception:
+        return None
+
 
 # Sentinel for signaling end-of-stream from a sync generator
 _STREAM_END = object()
@@ -53,7 +84,8 @@ def _next_chunk(gen):
 @router.get("", response_model=List[StreamResponse])
 async def list_streams(
     request: Request,
-    client_id: str = Depends(verify_client_auth),
+    client_id: Optional[str] = Depends(optional_client_auth),
+    admin_api_key: Optional[str] = Depends(optional_admin_auth),
     model: Optional[str] = Query(None, description="Filter by model"),
     status: Optional[str] = Query(None, description="Filter by status (streaming, completed, error)"),
     limit: Optional[int] = Query(
@@ -64,12 +96,21 @@ async def list_streams(
     List streams with optional filters.
 
     - Requires client authentication (client_id and client_api_key headers)
+      or admin API key (admin_api_key header)
     - Returns only streams belonging to the authenticated client
+    - Admin can see all streams
     - Supports filtering by model and status via query parameters
     - Supports filtering by any clientReference field using query
       parameters like: clientReference.runId=123
     - Supports limiting results with the limit parameter (e.g., limit=10 returns only 10 items)
     """
+    is_admin = admin_api_key is not None
+    if not is_admin and client_id is None:
+        raise HTTPException(
+            status_code=http_status.HTTP_401_UNAUTHORIZED,
+            detail="Client authentication or admin API key is required"
+        )
+
     try:
         service = get_stream_service()
 
@@ -88,7 +129,8 @@ async def list_streams(
             model=model,
             status=status,
             limit=limit,
-            client_reference_filters=client_reference_filters
+            client_reference_filters=client_reference_filters,
+            is_admin=is_admin
         )
 
         return [StreamResponse(
@@ -120,7 +162,8 @@ async def list_streams(
 @router.get("/summary", response_model=StreamSummaryResponse)
 async def get_streams_summary(
     request: Request,
-    client_id: str = Depends(verify_client_auth),
+    client_id: Optional[str] = Depends(optional_client_auth),
+    admin_api_key: Optional[str] = Depends(optional_admin_auth),
     model: Optional[str] = Query(None, description="Filter by model"),
     status: Optional[str] = Query(None, description="Filter by status (streaming, completed, error)")
 ):
@@ -128,12 +171,21 @@ async def get_streams_summary(
     Get summary of streams with counts by status.
 
     - Requires client authentication (client_id and client_api_key headers)
+      or admin API key (admin_api_key header)
     - Returns counts for each status (streaming, completed, error)
     - Supports filtering by model, status, and any clientReference field
     - For clientReference filtering, use query parameters like:
       clientReference.runId=123
     - Clients can only see their own streams
+    - Admin can see all streams
     """
+    is_admin = admin_api_key is not None
+    if not is_admin and client_id is None:
+        raise HTTPException(
+            status_code=http_status.HTTP_401_UNAUTHORIZED,
+            detail="Client authentication or admin API key is required"
+        )
+
     try:
         service = get_stream_service()
 
@@ -151,7 +203,8 @@ async def get_streams_summary(
             client_id=client_id,
             model=model,
             status=status,
-            client_reference_filters=client_reference_filters
+            client_reference_filters=client_reference_filters,
+            is_admin=is_admin
         )
 
         return StreamSummaryResponse(**summary)
@@ -172,7 +225,8 @@ async def get_streams_summary(
     response_model=StreamAnalyticsResponse
 )
 async def get_stream_analytics(
-    client_id: str = Depends(verify_client_auth),
+    client_id: Optional[str] = Depends(optional_client_auth),
+    admin_api_key: Optional[str] = Depends(optional_admin_auth),
     dateFrom: Optional[str] = Query(
         None,
         description="ISO datetime lower bound on createdAt"
@@ -185,12 +239,21 @@ async def get_stream_analytics(
     """
     Get per-stream processing metrics for charting.
 
+    - Requires client authentication or admin API key
     - Returns individual data points (one per completed
       stream) with tokens, costs, and duration
     - Groups data by model, clientReference, and promptIds
     - Supports date range filtering via dateFrom / dateTo
     - Only completed streams are included
+    - Admin can see all streams
     """
+    is_admin = admin_api_key is not None
+    if not is_admin and client_id is None:
+        raise HTTPException(
+            status_code=http_status.HTTP_401_UNAUTHORIZED,
+            detail="Client authentication or admin API key is required"
+        )
+
     try:
         if dateFrom:
             datetime.fromisoformat(dateFrom)
@@ -208,7 +271,8 @@ async def get_stream_analytics(
         result = service.get_stream_analytics(
             client_id=client_id,
             date_from=dateFrom,
-            date_to=dateTo
+            date_to=dateTo,
+            is_admin=is_admin
         )
         return StreamAnalyticsResponse(
             dataPoints=result["dataPoints"],
@@ -236,18 +300,30 @@ async def get_stream_analytics(
 @router.get("/{stream_id}", response_model=StreamResponse)
 async def get_stream(
     stream_id: str,
-    client_id: str = Depends(verify_client_auth)
+    client_id: Optional[str] = Depends(optional_client_auth),
+    admin_api_key: Optional[str] = Depends(optional_admin_auth)
 ):
     """
     Get a stream by ID.
 
     - Requires client authentication (client_id and client_api_key headers)
+      or admin API key (admin_api_key header)
     - Clients can only access their own streams
+    - Admin can access any stream
     """
+    is_admin = admin_api_key is not None
+    if not is_admin and client_id is None:
+        raise HTTPException(
+            status_code=http_status.HTTP_401_UNAUTHORIZED,
+            detail="Client authentication or admin API key is required"
+        )
+
     service = get_stream_service()
 
     try:
-        stream = service.get_stream_by_id(stream_id, client_id)
+        stream = service.get_stream_by_id(
+            stream_id, client_id=client_id, is_admin=is_admin
+        )
 
         return StreamResponse(
             streamId=str(stream["_id"]),
@@ -276,16 +352,35 @@ async def get_stream(
 @router.post("")
 async def stream_completion(
     request: StreamCreateRequest,
-    client_id: str = Depends(verify_client_auth)
+    client_id: Optional[str] = Depends(optional_client_auth),
+    admin_api_key: Optional[str] = Depends(optional_admin_auth),
+    raw_client_id: Annotated[
+        Optional[str], Header(alias="client_id")
+    ] = None
 ):
     """
     Stream LLM completion in real-time.
 
     - Requires client authentication (client_id and client_api_key headers)
+      or admin API key (admin_api_key header)
+    - Admin must provide client_id header for the stream record
     - Validates model exists and additional prompt IDs if provided
     - Streams response chunks as they arrive from the LLM
     - Saves stream record to database with request/response data
     """
+    is_admin = admin_api_key is not None
+    effective_client_id = client_id if client_id else raw_client_id
+    if not is_admin and client_id is None:
+        raise HTTPException(
+            status_code=http_status.HTTP_401_UNAUTHORIZED,
+            detail="Client authentication or admin API key is required"
+        )
+    if is_admin and not effective_client_id:
+        raise HTTPException(
+            status_code=http_status.HTTP_400_BAD_REQUEST,
+            detail="client_id header is required when streaming as admin"
+        )
+
     request_received_time = time.time()
     service = get_stream_service()
 
@@ -357,7 +452,7 @@ async def stream_completion(
     def _create_record():
         try:
             service.create_stream_record(
-                client_id=client_id,
+                client_id=effective_client_id,
                 model=request.model,
                 temperature=temperature,
                 request_data=request_data,
