@@ -218,34 +218,47 @@ class PromptService:
         # Return the created prompt
         return self.get_prompt_by_id(db_id, client_id)
     
-    def list_prompts(self, client_id: str, name: Optional[str] = None, 
-                    type_name: Optional[str] = None, status: Optional[PromptStatus] = None,
-                    version: Optional[Union[str, int]] = None) -> List[Dict[str, Any]]:
+    def list_prompts(self, client_id: Optional[str] = None,
+                    name: Optional[str] = None,
+                    type_name: Optional[str] = None,
+                    status: Optional[PromptStatus] = None,
+                    version: Optional[Union[str, int]] = None,
+                    is_admin: bool = False) -> List[Dict[str, Any]]:
         """
-        List prompts with filtering. Returns both public prompts and client's private prompts.
-        
+        List prompts with filtering.
+
+        - Admin: returns all prompts (public and private across all
+          clients)
+        - Client: returns public prompts and the client's private
+          prompts
+
         Args:
-            client_id: Authenticated client ID
+            client_id: Authenticated client ID (None for admin)
             name: Optional filter by name
             type_name: Optional filter by type
             status: Optional filter by status
             version: Optional filter by version
-            
+            is_admin: Whether the requester is an admin
+
         Returns:
             List of prompt dictionaries
         """
-        business_logger.log_operation("prompt_service", "list_prompts", client_id=client_id)
-        
-        # Build query: include public prompts OR client's private prompts
-        # Use $and to properly combine $or with filters (db_read will add _metadata.isDeleted)
-        query_conditions = [
-            {
+        business_logger.log_operation(
+            "prompt_service", "list_prompts",
+            client_id=client_id, is_admin=is_admin
+        )
+
+        # Build query based on auth type
+        query_conditions = []
+        if not is_admin:
+            # Client: include public prompts OR client's private
+            # prompts
+            query_conditions.append({
                 "$or": [
                     {"isPublic": True},
                     {"isPublic": False, "client_id": client_id}
                 ]
-            }
-        ]
+            })
         
         # Add filters
         if name:
@@ -258,8 +271,11 @@ class PromptService:
             query_conditions.append({"version": version})
         
         # Build final query - use $and to combine conditions
-        # db_read will add _metadata.isDeleted which will be ANDed with this
-        if len(query_conditions) == 1:
+        # db_read will add _metadata.isDeleted which will be ANDed
+        # with this
+        if len(query_conditions) == 0:
+            query = {}
+        elif len(query_conditions) == 1:
             query = query_conditions[0]
         else:
             query = {"$and": query_conditions}
@@ -445,22 +461,31 @@ class PromptService:
         # Return updated prompt
         return self.get_prompt_by_id(prompt_id, client_id)
     
-    def delete_prompt(self, prompt_id: str, client_id: Optional[str] = None) -> bool:
+    def delete_prompt(self, prompt_id: str,
+                     client_id: Optional[str] = None,
+                     is_admin: bool = False) -> bool:
         """
         Soft delete a prompt with access control.
-        
+
         Args:
             prompt_id: Prompt document ID
-            client_id: Client ID for access control (required for private prompts)
-            
+            client_id: Client ID for access control (required for
+                private prompts)
+            is_admin: Whether the requester is an admin (bypasses
+                access control)
+
         Returns:
             True if deletion successful
-            
+
         Raises:
             ValueError: If prompt not found or access denied
         """
-        business_logger.log_operation("prompt_service", "delete_prompt", prompt_id=prompt_id, client_id=client_id)
-        
+        business_logger.log_operation(
+            "prompt_service", "delete_prompt",
+            prompt_id=prompt_id, client_id=client_id,
+            is_admin=is_admin
+        )
+
         # Get existing prompt
         prompt = get_document_by_id(
             self.mongo_client,
@@ -468,15 +493,18 @@ class PromptService:
             self.collection_name,
             prompt_id
         )
-        
+
         if not prompt:
             raise ValueError(f"Prompt not found: {prompt_id}")
-        
-        # Access control: public prompts can only be deleted by admin (checked in router)
+
+        # Access control: admins can delete any prompt
         # Private prompts can only be deleted by owner
-        if not prompt.get("isPublic", False):
+        if not is_admin and not prompt.get("isPublic", False):
             if not client_id or prompt.get("client_id") != client_id:
-                raise ValueError("Access denied: prompt not found or insufficient permissions")
+                raise ValueError(
+                    "Access denied: prompt not found or "
+                    "insufficient permissions"
+                )
         
         # Soft delete the prompt
         success = db_delete(

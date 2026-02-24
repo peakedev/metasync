@@ -133,7 +133,8 @@ async def create_prompt(
 
 @router.get("", response_model=List[PromptResponse])
 async def list_prompts(
-    client_id: str = Depends(verify_client_auth),
+    client_id: Optional[str] = Depends(optional_client_auth),
+    admin_api_key: Optional[str] = Depends(optional_admin_auth),
     name: Optional[str] = Query(None, description="Filter by prompt name"),
     type: Optional[str] = Query(None, description="Filter by prompt type"),
     status_filter: Optional[PromptStatus] = Query(
@@ -145,10 +146,19 @@ async def list_prompts(
 ):
     """
     List prompts with optional filtering.
-    
-    Returns both public prompts and the authenticated client's private
-    prompts. Filters can be combined (AND logic).
+
+    - Admin API key: returns all prompts (public and private across
+      all clients)
+    - Client auth: returns public prompts and the client's private
+      prompts
+    - Filters can be combined (AND logic)
     """
+    is_admin = admin_api_key is not None
+    if not is_admin and client_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication is required (client or admin)"
+        )
     try:
         service = get_prompt_service()
         prompts = service.list_prompts(
@@ -156,9 +166,10 @@ async def list_prompts(
             name=name,
             type_name=type,
             status=status_filter,
-            version=version
+            version=version,
+            is_admin=is_admin
         )
-        
+
         return [PromptResponse(**prompt) for prompt in prompts]
     except Exception as e:
         logger.error(
@@ -176,27 +187,45 @@ async def list_prompts(
 @router.get("/{prompt_id}", response_model=PromptResponse)
 async def get_prompt(
     prompt_id: str,
-    client_id: str = Depends(verify_client_auth)
+    client_id: Optional[str] = Depends(optional_client_auth),
+    admin_api_key: Optional[str] = Depends(optional_admin_auth)
 ):
     """
     Get a prompt by ID.
-    
-    Returns the prompt if it's public or belongs to the authenticated
-    client.
+
+    - Admin API key: returns any prompt regardless of ownership
+    - Client auth: returns the prompt if it's public or belongs to
+      the authenticated client
     """
+    is_admin = admin_api_key is not None
+    if not is_admin and client_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication is required (client or admin)"
+        )
     try:
         service = get_prompt_service()
-        prompt = service.get_prompt_by_id(prompt_id, client_id)
-        
+        prompt = service.get_prompt_by_id(
+            prompt_id, client_id, is_admin=is_admin
+        )
+
         return PromptResponse(**prompt)
     except ValueError as e:
-        logger.warning("Error getting prompt", error=str(e), prompt_id=prompt_id)
+        logger.warning(
+            "Error getting prompt",
+            error=str(e),
+            prompt_id=prompt_id
+        )
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e)
         )
     except Exception as e:
-        logger.error("Error getting prompt", error=str(e), prompt_id=prompt_id)
+        logger.error(
+            "Error getting prompt",
+            error=str(e),
+            prompt_id=prompt_id
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get prompt"
@@ -329,29 +358,34 @@ async def delete_prompt(
     """
     try:
         service = get_prompt_service()
-        
+        is_admin = admin_api_key is not None
+
         # First, get the prompt to check if it's public or private
-        existing_prompt = service.get_prompt_by_id(prompt_id, client_id)
-        
-        # Check access: public prompts require admin, private prompts require owner
-        if existing_prompt.get("isPublic", False):
-            if admin_api_key is None:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail=(
-                        "Admin API key is required to delete public prompts"
-                    )
+        existing_prompt = service.get_prompt_by_id(
+            prompt_id, client_id, is_admin=is_admin
+        )
+
+        # Check access: public prompts require admin, private
+        # prompts require owner (admins can delete any)
+        if is_admin:
+            service.delete_prompt(
+                prompt_id, client_id=None, is_admin=True
+            )
+        elif existing_prompt.get("isPublic", False):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    "Admin API key is required to delete public "
+                    "prompts"
                 )
-            # For public prompts, pass None as client_id
-            service.delete_prompt(prompt_id, client_id=None)
+            )
         else:
-            # For private prompts, client_id is required
             if client_id is None:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail=(
-                        "Client authentication is required to delete "
-                        "private prompts"
+                        "Client authentication is required to "
+                        "delete private prompts"
                     )
                 )
             service.delete_prompt(prompt_id, client_id=client_id)
