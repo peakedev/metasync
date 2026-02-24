@@ -5,17 +5,20 @@ Provides streaming LLM responses with client authentication
 import time
 import asyncio
 import threading
+from datetime import datetime
 from bson import ObjectId
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query, Request
 from fastapi import status as http_status
 from fastapi.responses import StreamingResponse
-from typing import Annotated, Optional, List
+from typing import Annotated, Optional, List, Dict, Any
 
 from api.middleware.client_auth import verify_client_auth
 from api.models.stream_models import (
     StreamCreateRequest,
     StreamResponse,
     StreamSummaryResponse,
+    StreamAnalyticsResponse,
+    StreamAnalyticsDateRange,
     StreamStatus
 )
 from api.services.stream_service import get_stream_service
@@ -49,6 +52,7 @@ def _next_chunk(gen):
 
 @router.get("", response_model=List[StreamResponse])
 async def list_streams(
+    request: Request,
     client_id: str = Depends(verify_client_auth),
     model: Optional[str] = Query(None, description="Filter by model"),
     status: Optional[str] = Query(None, description="Filter by status (streaming, completed, error)"),
@@ -62,16 +66,29 @@ async def list_streams(
     - Requires client authentication (client_id and client_api_key headers)
     - Returns only streams belonging to the authenticated client
     - Supports filtering by model and status via query parameters
+    - Supports filtering by any clientReference field using query
+      parameters like: clientReference.runId=123
     - Supports limiting results with the limit parameter (e.g., limit=10 returns only 10 items)
     """
     try:
         service = get_stream_service()
 
+        client_reference_filters: Dict[str, Any] = {}
+        for key, value in request.query_params.items():
+            if key.startswith("clientReference."):
+                field_name = key[len("clientReference."):]
+                if field_name and value is not None:
+                    client_reference_filters[field_name] = value
+
+        if not client_reference_filters:
+            client_reference_filters = None
+
         streams = service.list_streams(
             client_id=client_id,
             model=model,
             status=status,
-            limit=limit
+            limit=limit,
+            client_reference_filters=client_reference_filters
         )
 
         return [StreamResponse(
@@ -81,6 +98,7 @@ async def list_streams(
             temperature=stream["temperature"],
             status=stream["status"],
             processingMetrics=stream.get("processingMetrics"),
+            clientReference=stream.get("clientReference"),
             _metadata=stream["_metadata"]
         ) for stream in streams]
     except HTTPException:
@@ -101,6 +119,7 @@ async def list_streams(
 
 @router.get("/summary", response_model=StreamSummaryResponse)
 async def get_streams_summary(
+    request: Request,
     client_id: str = Depends(verify_client_auth),
     model: Optional[str] = Query(None, description="Filter by model"),
     status: Optional[str] = Query(None, description="Filter by status (streaming, completed, error)")
@@ -110,16 +129,29 @@ async def get_streams_summary(
 
     - Requires client authentication (client_id and client_api_key headers)
     - Returns counts for each status (streaming, completed, error)
-    - Supports filtering by model and status
+    - Supports filtering by model, status, and any clientReference field
+    - For clientReference filtering, use query parameters like:
+      clientReference.runId=123
     - Clients can only see their own streams
     """
     try:
         service = get_stream_service()
 
+        client_reference_filters: Dict[str, Any] = {}
+        for key, value in request.query_params.items():
+            if key.startswith("clientReference."):
+                field_name = key[len("clientReference."):]
+                if field_name and value is not None:
+                    client_reference_filters[field_name] = value
+
+        if not client_reference_filters:
+            client_reference_filters = None
+
         summary = service.get_streams_summary(
             client_id=client_id,
             model=model,
-            status=status
+            status=status,
+            client_reference_filters=client_reference_filters
         )
 
         return StreamSummaryResponse(**summary)
@@ -132,6 +164,72 @@ async def get_streams_summary(
         raise HTTPException(
             status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get stream summary"
+        )
+
+
+@router.get(
+    "/analytics",
+    response_model=StreamAnalyticsResponse
+)
+async def get_stream_analytics(
+    client_id: str = Depends(verify_client_auth),
+    dateFrom: Optional[str] = Query(
+        None,
+        description="ISO datetime lower bound on createdAt"
+    ),
+    dateTo: Optional[str] = Query(
+        None,
+        description="ISO datetime upper bound on createdAt"
+    )
+):
+    """
+    Get per-stream processing metrics for charting.
+
+    - Returns individual data points (one per completed
+      stream) with tokens, costs, and duration
+    - Groups data by model, clientReference, and promptIds
+    - Supports date range filtering via dateFrom / dateTo
+    - Only completed streams are included
+    """
+    try:
+        if dateFrom:
+            datetime.fromisoformat(dateFrom)
+        if dateTo:
+            datetime.fromisoformat(dateTo)
+    except ValueError:
+        raise HTTPException(
+            status_code=http_status.HTTP_400_BAD_REQUEST,
+            detail="dateFrom and dateTo must be valid "
+            "ISO datetime strings"
+        )
+
+    try:
+        service = get_stream_service()
+        result = service.get_stream_analytics(
+            client_id=client_id,
+            date_from=dateFrom,
+            date_to=dateTo
+        )
+        return StreamAnalyticsResponse(
+            dataPoints=result["dataPoints"],
+            groups=result["groups"],
+            totalCount=result["totalCount"],
+            dateRange=StreamAnalyticsDateRange(
+                **result["dateRange"]
+            )
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "Error getting stream analytics",
+            error=str(e), client_id=client_id
+        )
+        raise HTTPException(
+            status_code=(
+                http_status.HTTP_500_INTERNAL_SERVER_ERROR
+            ),
+            detail="Failed to get stream analytics"
         )
 
 
@@ -158,6 +256,7 @@ async def get_stream(
             temperature=stream["temperature"],
             status=stream["status"],
             processingMetrics=stream.get("processingMetrics"),
+            clientReference=stream.get("clientReference"),
             _metadata=stream["_metadata"]
         )
     except ValueError as e:
@@ -262,7 +361,8 @@ async def stream_completion(
                 model=request.model,
                 temperature=temperature,
                 request_data=request_data,
-                stream_id=stream_id
+                stream_id=stream_id,
+                client_reference=request.clientReference
             )
         except Exception as exc:
             logger.error(

@@ -2,7 +2,8 @@
 Stream management service layer
 Handles business logic for stream operations, validation, and access control
 """
-from typing import Optional, Dict, Any, List
+import json
+from typing import Optional, Dict, Any, List, Tuple
 from datetime import datetime
 from bson import ObjectId
 
@@ -144,7 +145,8 @@ class StreamService:
         model: str,
         temperature: float,
         request_data: Dict[str, Any],
-        stream_id: Optional[str] = None
+        stream_id: Optional[str] = None,
+        client_reference: Optional[Dict[str, Any]] = None
     ) -> str:
         """
         Create a new stream record in the database.
@@ -157,6 +159,8 @@ class StreamService:
             stream_id: Optional pre-generated ID to use as
                 the document _id (allows callers to know the
                 ID before the write completes)
+            client_reference: Optional opaque JSON object
+                for client reference
 
         Returns:
             Stream ID (MongoDB document ID)
@@ -182,6 +186,9 @@ class StreamService:
                 "isDeleted": False
             }
         }
+
+        if client_reference:
+            stream_data["clientReference"] = client_reference
 
         # If a pre-generated stream_id was provided, use it
         # as the MongoDB document _id so callers can reference
@@ -307,7 +314,8 @@ class StreamService:
         client_id: str,
         model: Optional[str] = None,
         status: Optional[str] = None,
-        limit: Optional[int] = None
+        limit: Optional[int] = None,
+        client_reference_filters: Optional[Dict[str, Any]] = None
     ) -> List[Dict[str, Any]]:
         """
         List streams with optional filters.
@@ -317,6 +325,9 @@ class StreamService:
             model: Optional filter by model
             status: Optional filter by status
             limit: Optional limit on number of results returned
+            client_reference_filters: Optional dict of filters for
+                clientReference fields, e.g. {"runId": "123"} will
+                filter where clientReference.runId == "123"
             
         Returns:
             List of stream dictionaries
@@ -336,6 +347,11 @@ class StreamService:
         
         if status is not None:
             query["status"] = status
+        
+        if client_reference_filters:
+            for key, value in client_reference_filters.items():
+                if key:
+                    query[f"clientReference.{key}"] = value
         
         streams = db_read(
             self.mongo_client,
@@ -367,7 +383,8 @@ class StreamService:
         self,
         client_id: str,
         model: Optional[str] = None,
-        status: Optional[str] = None
+        status: Optional[str] = None,
+        client_reference_filters: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
         Get summary of streams with counts by status, with optional filtering.
@@ -376,6 +393,9 @@ class StreamService:
             client_id: Client ID (required, clients can only see their own streams)
             model: Optional filter by model
             status: Optional filter by status
+            client_reference_filters: Optional dict of filters for
+                clientReference fields, e.g. {"runId": "123"} will
+                filter where clientReference.runId == "123"
             
         Returns:
             Dictionary with counts by status, total count, and aggregated processingMetrics
@@ -395,6 +415,11 @@ class StreamService:
         
         if status:
             query["status"] = status
+        
+        if client_reference_filters:
+            for key, value in client_reference_filters.items():
+                if key:
+                    query[f"clientReference.{key}"] = value
         
         # Use aggregation to count by status
         db = self.mongo_client[self.db_name]
@@ -544,6 +569,211 @@ class StreamService:
             logger.error("Error getting stream summary", error=str(e), client_id=client_id)
             raise RuntimeError(f"Failed to get stream summary: {str(e)}")
     
+    def get_stream_analytics(
+        self,
+        client_id: str,
+        date_from: Optional[str] = None,
+        date_to: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Return per-stream processing metrics with grouping
+        metadata for frontend charting.
+
+        Only completed streams (with full processingMetrics)
+        are included.
+
+        Args:
+            client_id: Client ID (required for access control)
+            date_from: Optional ISO datetime lower bound on
+                _metadata.createdAt
+            date_to: Optional ISO datetime upper bound on
+                _metadata.createdAt
+
+        Returns:
+            Dictionary with dataPoints, groups, totalCount,
+            and dateRange.
+
+        Raises:
+            RuntimeError: On database failure
+        """
+        business_logger.log_operation(
+            "stream_service",
+            "get_stream_analytics",
+            client_id=client_id
+        )
+
+        query: Dict[str, Any] = {
+            "clientId": client_id,
+            "status": "completed",
+            "processingMetrics": {"$exists": True, "$ne": None},
+            "_metadata.isDeleted": {"$ne": True},
+        }
+
+        if date_from or date_to:
+            created_filter: Dict[str, Any] = {}
+            if date_from:
+                created_filter["$gte"] = date_from
+            if date_to:
+                created_filter["$lte"] = date_to
+            query["_metadata.createdAt"] = created_filter
+
+        projection = {
+            "responseData": 0,
+        }
+
+        try:
+            db = self.mongo_client[self.db_name]
+            collection = db[self.collection_name]
+
+            def find_operation():
+                return list(
+                    collection.find(query, projection)
+                    .sort("_metadata.createdAt", 1)
+                )
+
+            streams = safe_operation(find_operation)
+
+            data_points: List[Dict[str, Any]] = []
+            group_map: Dict[
+                Tuple[str, str, str], Dict[str, Any]
+            ] = {}
+
+            for stream in streams:
+                request_data = stream.get("requestData", {})
+                metrics = stream.get("processingMetrics", {})
+                client_ref = stream.get("clientReference")
+                model = stream.get("model", "")
+                prompt_ids = (
+                    request_data.get("additionalPrompts")
+                )
+                user_prompt = request_data.get(
+                    "userPrompt", ""
+                )
+
+                data_points.append({
+                    "streamId": str(stream["_id"]),
+                    "createdAt": (
+                        stream.get("_metadata", {})
+                        .get("createdAt", "")
+                    ),
+                    "model": model,
+                    "clientReference": client_ref,
+                    "promptIds": prompt_ids,
+                    "userPrompt": user_prompt,
+                    "processingMetrics": metrics,
+                })
+
+                group_key = self._analytics_group_key(
+                    model, client_ref, prompt_ids
+                )
+                if group_key not in group_map:
+                    group_map[group_key] = {
+                        "model": model,
+                        "clientReference": client_ref,
+                        "promptIds": prompt_ids,
+                        "count": 0,
+                        "_tokens_in": 0,
+                        "_tokens_out": 0,
+                        "_tokens_total": 0,
+                        "_duration": 0.0,
+                        "_cost": 0.0,
+                        "_currencies": set(),
+                    }
+
+                grp = group_map[group_key]
+                grp["count"] += 1
+                grp["_tokens_in"] += metrics.get(
+                    "inputTokens", 0
+                )
+                grp["_tokens_out"] += metrics.get(
+                    "outputTokens", 0
+                )
+                grp["_tokens_total"] += metrics.get(
+                    "totalTokens", 0
+                )
+                grp["_duration"] += metrics.get(
+                    "totalDuration",
+                    metrics.get("duration", 0.0)
+                )
+                currency = metrics.get("currency")
+                if currency:
+                    grp["_currencies"].add(currency)
+                    grp["_cost"] += metrics.get(
+                        "totalCost", 0.0
+                    )
+
+            groups: List[Dict[str, Any]] = []
+            for grp in group_map.values():
+                currencies = grp.pop("_currencies")
+                uniform = len(currencies) == 1
+                groups.append({
+                    "model": grp["model"],
+                    "clientReference": grp["clientReference"],
+                    "promptIds": grp["promptIds"],
+                    "count": grp["count"],
+                    "aggregatedMetrics": {
+                        "inputTokens": grp["_tokens_in"],
+                        "outputTokens": grp["_tokens_out"],
+                        "totalTokens": grp["_tokens_total"],
+                        "totalDuration": round(
+                            grp["_duration"], 2
+                        ),
+                        "totalCost": (
+                            grp["_cost"] if uniform
+                            else None
+                        ),
+                        "currency": (
+                            currencies.pop() if uniform
+                            else None
+                        ),
+                    },
+                })
+
+            result = {
+                "dataPoints": data_points,
+                "groups": groups,
+                "totalCount": len(data_points),
+                "dateRange": {
+                    "from": date_from,
+                    "to": date_to,
+                },
+            }
+
+            logger.info(
+                "Stream analytics retrieved",
+                client_id=client_id,
+                total_count=len(data_points),
+                group_count=len(groups)
+            )
+            return result
+
+        except Exception as e:
+            logger.error(
+                "Error getting stream analytics",
+                error=str(e),
+                client_id=client_id
+            )
+            raise RuntimeError(
+                f"Failed to get stream analytics: {str(e)}"
+            )
+
+    @staticmethod
+    def _analytics_group_key(
+        model: str,
+        client_reference: Optional[Dict[str, Any]],
+        prompt_ids: Optional[List[str]]
+    ) -> Tuple[str, str, str]:
+        """Build a hashable key for analytics grouping."""
+        ref_key = (
+            json.dumps(client_reference, sort_keys=True)
+            if client_reference else ""
+        )
+        prompts_key = (
+            json.dumps(sorted(prompt_ids))
+            if prompt_ids else ""
+        )
+        return (model, ref_key, prompts_key)
+
     def _format_stream_response(self, stream: Dict[str, Any]) -> Dict[str, Any]:
         """
         Format a stream document for API response.
@@ -561,6 +791,7 @@ class StreamService:
             "temperature": stream.get("temperature"),
             "status": stream.get("status"),
             "processingMetrics": stream.get("processingMetrics"),
+            "clientReference": stream.get("clientReference"),
             "_metadata": stream.get("_metadata", {})
         }
 

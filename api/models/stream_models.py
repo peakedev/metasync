@@ -28,6 +28,9 @@ class StreamCreateRequest(BaseModel):
     temperature: float = Field(
         default=0.7, description="Sampling temperature", ge=0, le=2
     )
+    clientReference: Optional[Dict[str, Any]] = Field(
+        None, description="Free JSON object for client reference"
+    )
 
     @field_validator('additionalPrompts')
     @classmethod
@@ -47,6 +50,9 @@ class StreamResponse(BaseModel):
     status: str = Field(..., description="Stream status (completed, error)")
     processingMetrics: Optional[Dict[str, Any]] = Field(
         None, description="Processing metrics including tokens, duration, and costs (only present after streaming completes)"
+    )
+    clientReference: Optional[Dict[str, Any]] = Field(
+        None, description="Client reference data"
     )
     metadata: Dict[str, Any] = Field(
         ..., alias="_metadata", description="Metadata with timestamps"
@@ -74,6 +80,7 @@ class StreamResponse(BaseModel):
                     "totalCost": 0.0006,
                     "currency": "USD"
                 },
+                "clientReference": {"ref": "abc123"},
                 "_metadata": {
                     "createdAt": "2024-01-01T00:00:00",
                     "completedAt": "2024-01-01T00:00:05"
@@ -98,9 +105,191 @@ class StreamRecord(BaseModel):
     processing_metrics: Optional[Dict[str, Any]] = Field(
         None, description="Processing metrics including tokens and duration"
     )
+    client_reference: Optional[Dict[str, Any]] = Field(
+        None, description="Client reference data"
+    )
     status: str = Field(default="streaming", description="Stream status")
     metadata: Dict[str, Any] = Field(
         ..., alias="_metadata", description="Metadata with timestamps"
+    )
+
+
+class StreamAnalyticsDataPoint(BaseModel):
+    """Individual stream data point for analytics charting"""
+    streamId: str = Field(..., description="MongoDB document ID")
+    createdAt: str = Field(
+        ..., description="ISO datetime when the stream was created"
+    )
+    model: str = Field(..., description="Model used for the stream")
+    clientReference: Optional[Dict[str, Any]] = Field(
+        None, description="Client reference data"
+    )
+    promptIds: Optional[List[str]] = Field(
+        None,
+        description="IDs of additional prompts used"
+    )
+    userPrompt: str = Field(
+        ..., description="The user prompt sent to the model"
+    )
+    processingMetrics: Dict[str, Any] = Field(
+        ...,
+        description="Processing metrics: tokens, duration, costs"
+    )
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "streamId": "68d39fe8aac434df5f140c57",
+                "createdAt": "2024-01-01T00:00:00",
+                "model": "gpt-4",
+                "clientReference": {
+                    "sessionId": "abc",
+                    "userId": "xyz"
+                },
+                "promptIds": ["id1", "id2"],
+                "userPrompt": "Summarize this text...",
+                "processingMetrics": {
+                    "inputTokens": 10,
+                    "outputTokens": 50,
+                    "totalTokens": 60,
+                    "duration": 1.45,
+                    "llmDuration": 1.23,
+                    "totalDuration": 1.45,
+                    "overheadDuration": 0.22,
+                    "inputCost": 0.0001,
+                    "outputCost": 0.0005,
+                    "totalCost": 0.0006,
+                    "currency": "USD"
+                }
+            }
+        }
+    )
+
+
+class StreamAnalyticsGroupMetrics(BaseModel):
+    """Aggregated metrics for an analytics group"""
+    inputTokens: int = Field(
+        0, description="Total input tokens across the group"
+    )
+    outputTokens: int = Field(
+        0, description="Total output tokens across the group"
+    )
+    totalTokens: int = Field(
+        0, description="Total tokens across the group"
+    )
+    totalDuration: float = Field(
+        0.0, description="Total processing duration in seconds"
+    )
+    totalCost: Optional[float] = Field(
+        None,
+        description="Total cost across the group (null if "
+        "currencies are mixed or unavailable)"
+    )
+    currency: Optional[str] = Field(
+        None, description="Currency if uniform across the group"
+    )
+
+
+class StreamAnalyticsGroup(BaseModel):
+    """Unique grouping of streams by model, clientReference, and prompts"""
+    model: str = Field(..., description="Model name")
+    clientReference: Optional[Dict[str, Any]] = Field(
+        None, description="Client reference data"
+    )
+    promptIds: Optional[List[str]] = Field(
+        None, description="Additional prompt IDs used"
+    )
+    count: int = Field(
+        ..., description="Number of streams in this group"
+    )
+    aggregatedMetrics: StreamAnalyticsGroupMetrics = Field(
+        ..., description="Aggregated processing metrics"
+    )
+
+
+class StreamAnalyticsDateRange(BaseModel):
+    """Applied date range for the analytics query"""
+    fromDate: Optional[str] = Field(
+        None,
+        alias="from",
+        description="Start of the date range (ISO datetime)"
+    )
+    toDate: Optional[str] = Field(
+        None,
+        alias="to",
+        description="End of the date range (ISO datetime)"
+    )
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class StreamAnalyticsResponse(BaseModel):
+    """Response model for stream analytics endpoint"""
+    dataPoints: List[StreamAnalyticsDataPoint] = Field(
+        ..., description="Individual stream data points"
+    )
+    groups: List[StreamAnalyticsGroup] = Field(
+        ...,
+        description="Unique groups derived from model, "
+        "clientReference, and promptIds"
+    )
+    totalCount: int = Field(
+        ..., description="Total number of data points returned"
+    )
+    dateRange: StreamAnalyticsDateRange = Field(
+        ..., description="Applied date range filters"
+    )
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "dataPoints": [
+                    {
+                        "streamId": "68d39fe8aac434df5f140c57",
+                        "createdAt": "2024-01-01T00:00:00",
+                        "model": "gpt-4",
+                        "clientReference": {
+                            "sessionId": "abc"
+                        },
+                        "promptIds": ["id1"],
+                        "userPrompt": "Summarize this...",
+                        "processingMetrics": {
+                            "inputTokens": 10,
+                            "outputTokens": 50,
+                            "totalTokens": 60,
+                            "duration": 1.45,
+                            "inputCost": 0.0001,
+                            "outputCost": 0.0005,
+                            "totalCost": 0.0006,
+                            "currency": "USD"
+                        }
+                    }
+                ],
+                "groups": [
+                    {
+                        "model": "gpt-4",
+                        "clientReference": {
+                            "sessionId": "abc"
+                        },
+                        "promptIds": ["id1"],
+                        "count": 5,
+                        "aggregatedMetrics": {
+                            "inputTokens": 150,
+                            "outputTokens": 800,
+                            "totalTokens": 950,
+                            "totalDuration": 12.5,
+                            "totalCost": 0.023,
+                            "currency": "USD"
+                        }
+                    }
+                ],
+                "totalCount": 20,
+                "dateRange": {
+                    "from": "2024-01-01T00:00:00",
+                    "to": "2024-01-31T23:59:59"
+                }
+            }
+        }
     )
 
 
