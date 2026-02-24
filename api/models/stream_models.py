@@ -48,6 +48,15 @@ class StreamResponse(BaseModel):
     model: str = Field(..., description="Model used for the stream")
     temperature: float = Field(..., description="Temperature used")
     status: str = Field(..., description="Stream status (completed, error)")
+    requestData: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Request data including user prompt, system "
+        "prompt, and additional prompts"
+    )
+    responseData: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Response data including full LLM response text"
+    )
     processingMetrics: Optional[Dict[str, Any]] = Field(
         None, description="Processing metrics including tokens, duration, and costs (only present after streaming completes)"
     )
@@ -67,6 +76,14 @@ class StreamResponse(BaseModel):
                 "model": "gptest",
                 "temperature": 0.7,
                 "status": "completed",
+                "requestData": {
+                    "userPrompt": "Summarize this text...",
+                    "systemPrompt": "You are a helpful assistant.",
+                    "additionalPrompts": ["prompt-id-1"]
+                },
+                "responseData": {
+                    "fullText": "Here is a summary of the text..."
+                },
                 "processingMetrics": {
                     "inputTokens": 10,
                     "outputTokens": 50,

@@ -317,20 +317,27 @@ class StreamService:
         status: Optional[str] = None,
         limit: Optional[int] = None,
         client_reference_filters: Optional[Dict[str, Any]] = None,
+        date_from: Optional[str] = None,
+        date_to: Optional[str] = None,
         is_admin: bool = False
     ) -> List[Dict[str, Any]]:
         """
         List streams with optional filters.
-        
+
         Args:
-            client_id: Client ID (required, clients can only see their own streams)
+            client_id: Client ID (required, clients can only
+                see their own streams)
             model: Optional filter by model
             status: Optional filter by status
             limit: Optional limit on number of results returned
             client_reference_filters: Optional dict of filters for
                 clientReference fields, e.g. {"runId": "123"} will
                 filter where clientReference.runId == "123"
-            
+            date_from: Optional ISO datetime lower bound on
+                _metadata.createdAt
+            date_to: Optional ISO datetime upper bound on
+                _metadata.createdAt
+
         Returns:
             List of stream dictionaries
         """
@@ -359,7 +366,15 @@ class StreamService:
             for key, value in client_reference_filters.items():
                 if key:
                     query[f"clientReference.{key}"] = value
-        
+
+        if date_from or date_to:
+            created_filter: Dict[str, Any] = {}
+            if date_from:
+                created_filter["$gte"] = date_from
+            if date_to:
+                created_filter["$lte"] = date_to
+            query["_metadata.createdAt"] = created_filter
+
         streams = db_read(
             self.mongo_client,
             self.db_name,

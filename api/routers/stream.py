@@ -90,6 +90,14 @@ async def list_streams(
     status: Optional[str] = Query(None, description="Filter by status (streaming, completed, error)"),
     limit: Optional[int] = Query(
         None, description="Limit the number of results returned", ge=1
+    ),
+    date_from: Optional[str] = Query(
+        None, alias="from",
+        description="ISO datetime lower bound on createdAt"
+    ),
+    date_to: Optional[str] = Query(
+        None, alias="to",
+        description="ISO datetime upper bound on createdAt"
     )
 ):
     """
@@ -103,6 +111,7 @@ async def list_streams(
     - Supports filtering by any clientReference field using query
       parameters like: clientReference.runId=123
     - Supports limiting results with the limit parameter (e.g., limit=10 returns only 10 items)
+    - Supports date range filtering with from/to ISO datetime query parameters
     """
     is_admin = admin_api_key is not None
     if not is_admin and client_id is None:
@@ -130,6 +139,8 @@ async def list_streams(
             status=status,
             limit=limit,
             client_reference_filters=client_reference_filters,
+            date_from=date_from,
+            date_to=date_to,
             is_admin=is_admin
         )
 
@@ -331,6 +342,8 @@ async def get_stream(
             model=stream["model"],
             temperature=stream["temperature"],
             status=stream["status"],
+            requestData=stream.get("requestData"),
+            responseData=stream.get("responseData"),
             processingMetrics=stream.get("processingMetrics"),
             clientReference=stream.get("clientReference"),
             _metadata=stream["_metadata"]
