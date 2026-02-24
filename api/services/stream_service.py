@@ -696,9 +696,6 @@ class StreamService:
                 prompt_ids = (
                     request_data.get("additionalPrompts")
                 )
-                user_prompt = request_data.get(
-                    "userPrompt", ""
-                )
 
                 data_points.append({
                     "streamId": str(stream["_id"]),
@@ -709,7 +706,6 @@ class StreamService:
                     "model": model,
                     "clientReference": client_ref,
                     "promptIds": prompt_ids,
-                    "userPrompt": user_prompt,
                     "processingMetrics": metrics,
                 })
 

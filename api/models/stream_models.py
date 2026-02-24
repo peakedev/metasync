@@ -145,9 +145,6 @@ class StreamAnalyticsDataPoint(BaseModel):
         None,
         description="IDs of additional prompts used"
     )
-    userPrompt: str = Field(
-        ..., description="The user prompt sent to the model"
-    )
     processingMetrics: Dict[str, Any] = Field(
         ...,
         description="Processing metrics: tokens, duration, costs"
@@ -164,7 +161,6 @@ class StreamAnalyticsDataPoint(BaseModel):
                     "userId": "xyz"
                 },
                 "promptIds": ["id1", "id2"],
-                "userPrompt": "Summarize this text...",
                 "processingMetrics": {
                     "inputTokens": 10,
                     "outputTokens": 50,
@@ -269,7 +265,6 @@ class StreamAnalyticsResponse(BaseModel):
                             "sessionId": "abc"
                         },
                         "promptIds": ["id1"],
-                        "userPrompt": "Summarize this...",
                         "processingMetrics": {
                             "inputTokens": 10,
                             "outputTokens": 50,
