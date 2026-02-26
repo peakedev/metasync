@@ -37,8 +37,9 @@ def complete_with_model(
     
     # Skip API key check for test SDK
     if sdk != "test":
-        # Get API key from config using the model name
-        api_key = config.get_model_key(model_name)
+        # Get API key from config using the model's key reference
+        model_key_ref = mdl.get("key", "")
+        api_key = config.get_model_key(model_key_ref, model_name)
         if not api_key:
             raise ValueError(
                 f"API key not found in config for model '{model_name}'"

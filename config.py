@@ -137,11 +137,34 @@ class ConfigFactory:
             **self.get_worker_config(),
         }
     
-    def get_model_key(self, model_name: str) -> Optional[str]:
-        """Get API key for a model by name"""
-        attr_name = _model_name_to_attr_name(model_name)
-        print("\n  ATTRIBUTE NAME:", attr_name)
-        return getattr(self, attr_name, None)
+    def get_model_key(
+        self, key_ref: str, model_name: str = ""
+    ) -> Optional[str]:
+        """Get API key for a model using its key reference.
+
+        Args:
+            key_ref: The key reference from the model document
+                (e.g. 'AZUREAIFOUNDRY_KEY').
+            model_name: Optional model name, used as fallback
+                to look up the cached attribute from init.
+
+        Returns:
+            The API key string or None if not found.
+        """
+        # Primary: look up env var from the model's key reference
+        env_var_name = _key_to_env_var(key_ref)
+        value = os.getenv(env_var_name)
+        if value:
+            return value
+
+        # Fallback: try the cached attribute set during init
+        if model_name:
+            attr_name = _model_name_to_attr_name(model_name)
+            cached = getattr(self, attr_name, None)
+            if cached:
+                return cached
+
+        return None
     
     def __str__(self):
         """String representation for debugging"""

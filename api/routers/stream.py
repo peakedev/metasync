@@ -431,7 +431,10 @@ async def stream_completion(
 
         # Get API key for the model
         if sdk_name != "test":
-            api_key = config.get_model_key(model_name)
+            model_key_ref = model_config.get("key", "")
+            api_key = config.get_model_key(
+                model_key_ref, model_name
+            )
             if not api_key:
                 raise ValueError(
                     f"API key not found for model '{model_name}'"
